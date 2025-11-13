@@ -53,11 +53,17 @@
     <header class="bg-indigo-600 shadow-lg text-white p-4">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center">
             <h1 class="text-3xl font-extrabold tracking-tight">QuickServe Billing System</h1>
-            <p id="user-id-display" class="text-sm font-light mt-1 sm:mt-0 opacity-75"></p>
+            <div class="flex items-center mt-2 sm:mt-0">
+                <p id="user-id-display" class="text-sm font-light opacity-75 mr-4"></p>
+                <button id="auth-button" onclick="signOutUser()" class="px-3 py-1 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-semibold hidden">
+                    <i data-lucide="log-out" class="w-4 h-4 inline mr-1"></i> Sign Out
+                </button>
+            </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Main Content Area - Initially Hidden -->
+    <main id="app-main-content" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 hidden">
 
         <!-- Restaurant Menu Panel -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 border border-gray-100">
@@ -85,7 +91,7 @@
                 </p>
                 <button id="generate-special-btn" onclick="generateDailySpecial()" disabled
                     class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center">
-                    <i data-lucide="sparkles" class="w-4 h-4 mr-1"></i> Generate Daily Special
+                    <i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i> Generate Daily Special
                 </button>
             </div>
 
@@ -102,10 +108,45 @@
             
             <div class="mb-4">
                 <label for="order-type" class="block text-sm font-medium text-gray-700 mb-1">Order For</label>
-                <select id="order-type" class="w-full p-2 border border-gray-300 rounded-lg">
+                <select id="order-type" onchange="toggleTableSelection()" class="w-full p-2 border border-gray-300 rounded-lg">
                     <option value="Table/Dine-In">Table/Dine-In</option>
                     <option value="Parcel/Takeaway">Parcel/Takeaway</option>
                 </select>
+            </div>
+
+            <!-- Table Number Selection (shown only for Dine-In) -->
+            <div id="table-selection-container" class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Select Table Number</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="selectTable(1)" data-table="1" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 1
+                    </button>
+                    <button type="button" onclick="selectTable(2)" data-table="2" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 2
+                    </button>
+                    <button type="button" onclick="selectTable(3)" data-table="3" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 3
+                    </button>
+                    <button type="button" onclick="selectTable(4)" data-table="4" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 4
+                    </button>
+                    <button type="button" onclick="selectTable(5)" data-table="5" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 5
+                    </button>
+                    <button type="button" onclick="selectTable(6)" data-table="6" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 6
+                    </button>
+                    <button type="button" onclick="selectTable(7)" data-table="7" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 7
+                    </button>
+                    <button type="button" onclick="selectTable(8)" data-table="8" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 8
+                    </button>
+                    <button type="button" onclick="selectTable(9)" data-table="9" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 9
+                    </button>
+                </div>
+                <input type="hidden" id="selected-table" value="">
             </div>
 
             <!-- Order List -->
@@ -139,6 +180,36 @@
             </button>
         </div>
     </main>
+    
+    <!-- AUTHENTICATION MODAL (STRICTLY SIGN IN ONLY) -->
+    <div id="auth-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 transform transition-all">
+            <h3 class="text-3xl font-bold text-indigo-600 mb-4 text-center">QuickServe Sign In (Subscription Required)</h3>
+            <p id="auth-error-message" class="text-red-500 text-sm mb-4 text-center hidden"></p>
+            
+            <form id="auth-form" onsubmit="event.preventDefault(); handleAuth()">
+                <div class="space-y-4">
+                    <div>
+                        <label for="auth-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input type="email" id="auth-email" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="staff@restaurant.com">
+                    </div>
+                    <div>
+                        <label for="auth-password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="auth-password" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="********">
+                    </div>
+                    
+                    <button type="submit" id="auth-submit-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition duration-150">
+                        Sign In
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-500">This service requires an active restaurant subscription. New users must be manually registered by the service administrator.</p>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Modal for Menu Management (Add, Import, Edit, Delete) -->
     <div id="manage-menu-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4">
@@ -248,9 +319,10 @@
 
 
     <script type="module">
+        // Import necessary Firebase modules, including auth
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, orderBy, limit, getDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Firebase instances
@@ -258,6 +330,7 @@
         let db = null;
         let auth = null;
         let userId = null;
+        let restaurantId = null; // New variable to store the authorized restaurant ID
         let menuCollectionRef = null;
         let ordersCollectionRef = null;
         
@@ -268,14 +341,18 @@
         
         // Constants
         const TAX_RATE = 0.05; // 5%
-        // Point the front-end to your new local server endpoint (running on port 3000)
         const PROXY_API_URL = 'http://localhost:3000/api/generate-special'; 
-        // NOTE: The original API_KEY and GEMINI_API_URL constants are now obsolete 
-        // as the Node.js proxy handles them securely.
+        // Define a global, publicly accessible path for the whitelist/tenant management
+        const TENANT_WHITELIST_PATH = 'artifacts/global/public/data/restaurant_tenants'; 
         
         // UI Elements
         const loadingOverlay = document.getElementById('loading-overlay');
         const loadingMessage = document.getElementById('loading-message');
+        const appMainContent = document.getElementById('app-main-content');
+        const authModal = document.getElementById('auth-modal');
+        const authSubmitBtn = document.getElementById('auth-submit-btn');
+        const authErrorMsg = document.getElementById('auth-error-message');
+        const authButton = document.getElementById('auth-button');
         const menuContainer = document.getElementById('menu-items-container');
         const orderList = document.getElementById('current-order-list');
         const manageMenuBtn = document.getElementById('manage-menu-btn');
@@ -344,6 +421,116 @@
 
 
         // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
+        
+        /**
+         * Converts Firebase error codes to user-friendly messages.
+         * @param {string} code Firebase Auth error code
+         * @returns {string} User-friendly message
+         */
+        function formatAuthError(code) {
+            switch (code) {
+                case 'auth/invalid-email':
+                    return 'Invalid email address format.';
+                case 'auth/user-disabled':
+                    return 'This account has been disabled.';
+                case 'auth/user-not-found':
+                    return 'No account found with this email.';
+                case 'auth/wrong-password':
+                    return 'Incorrect password.';
+                case 'auth/email-already-in-use':
+                    return 'This email is already registered.';
+                case 'auth/weak-password':
+                    return 'Password must be at least 6 characters long.';
+                case 'auth/operation-not-allowed':
+                    return 'Email/Password sign-in is not enabled in Firebase settings.';
+                default:
+                    return `Authentication error: ${code.replace('auth/', '').replace(/-/g, ' ')}.`;
+            }
+        }
+
+        // Handles the Sign In process
+        async function handleAuth() {
+            authErrorMsg.classList.add('hidden');
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            
+            if (!email || !password) {
+                authErrorMsg.textContent = "Please enter both email and password.";
+                authErrorMsg.classList.remove('hidden');
+                return;
+            }
+
+            authSubmitBtn.disabled = true;
+            authSubmitBtn.textContent = 'Signing In...';
+
+            try {
+                // Sign in with Email and Password
+                await signInWithEmailAndPassword(auth, email, password);
+                
+                // The onAuthStateChanged listener will now handle the next steps (Authorization Check)
+
+            } catch (error) {
+                console.error("Authentication Error:", error);
+                authErrorMsg.textContent = formatAuthError(error.code);
+                authErrorMsg.classList.remove('hidden');
+            } finally {
+                authSubmitBtn.disabled = false;
+                authSubmitBtn.textContent = 'Sign In';
+            }
+        }
+        
+        async function signOutUser() {
+            const confirmed = await customConfirm("Are you sure you want to sign out?", "Confirm Sign Out");
+            if (confirmed) {
+                try {
+                    // Clear local restaurant ID when signing out
+                    restaurantId = null; 
+                    await signOut(auth);
+                    customAlert("Successfully signed out.", "Signed Out", 'alert');
+                } catch (error) {
+                    console.error("Sign Out Error:", error);
+                    customAlert("Error signing out.", "Sign Out Failed", 'error');
+                }
+            }
+        }
+        
+        /**
+         * Checks if the user's UID is whitelisted as a tenant/subscriber.
+         * On success, sets the global restaurantId to the tenant's ID.
+         * @param {string} uid The Firebase User ID
+         * @returns {Promise<string|null>} The restaurant ID if authorized, otherwise null.
+         */
+        async function checkSubscriptionAuthorization(uid) {
+            if (!db) return null;
+
+            try {
+                // CRITICAL FIX: Use a document path directly instead of a query
+                // This avoids the need for composite indexes
+                const tenantDocRef = doc(db, TENANT_WHITELIST_PATH, uid);
+                const tenantDocSnap = await getDoc(tenantDocRef);
+
+                if (!tenantDocSnap.exists()) {
+                    console.log(`Authorization failed for UID: ${uid}. Not found in tenant whitelist.`);
+                    return null;
+                }
+
+                // Authorized! Extract the restaurantId field
+                const rId = tenantDocSnap.data().restaurantId;
+                
+                if (!rId) {
+                    console.error("Whitelist document found but 'restaurantId' field is missing or empty.");
+                    return null;
+                }
+                
+                console.log(`✅ User ${uid} authorized for restaurant: ${rId}`);
+                return rId;
+
+            } catch (error) {
+                console.error("Error during authorization check:", error);
+                return null;
+            }
+        }
+
 
         async function initializeFirebase() {
             setLogLevel('debug');
@@ -360,7 +547,11 @@
                     appId: "1:86933612469:web:d3a0f03542a4e3830f1bfc",
                     measurementId: "G-8155CPE1WJ"
                 };
-                const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
+                
+                // CRITICAL FIX: Explicitly use the projectId as the appId for consistent path construction 
+                // to match the security rules.
+                const appId = firebaseConfig.projectId; 
+                
                 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                 // ** --- END: Environment Variables for Firebase --- **
 
@@ -372,23 +563,67 @@
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
-                        document.getElementById('user-id-display').textContent = `User ID: ${userId} | App ID: ${appId}`;
-                        loadingMessage.textContent = "User Authenticated. Loading Menu Data...";
+                        
+                        // Check if the user is anonymous (default state if no credentials are used)
+                        if (user.isAnonymous) {
+                             // Attempt to sign in with custom token if available, otherwise force login modal
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } 
+                            // If still anonymous, we must force the user to sign in
+                            if (auth.currentUser && auth.currentUser.isAnonymous) {
+                                showAuthModal(appId, 'Please Sign In with your restaurant credentials.');
+                            }
+                            return; 
+                        }
 
-                        // Define collection references after auth is successful
-                        const menuPath = `artifacts/${appId}/users/${userId}/restaurant_menu`;
-                        const ordersPath = `artifacts/${appId}/users/${userId}/completed_orders`;
+                        // --- STEP 1: Authorization Check for Non-Anonymous User ---
+                        restaurantId = await checkSubscriptionAuthorization(userId);
+                        
+                        if (!restaurantId) {
+                            // Authorization Failed: The user is logged in but not a whitelisted tenant
+                            console.warn(`User ${user.email} is not an authorized tenant.`);
+                            await signOut(auth); // Force sign out
+                            showAuthModal(appId, 'Access Denied. Your restaurant email is not whitelisted for this service.');
+                            return;
+                        }
+
+
+                        // --- STEP 2: Authorization SUCCESSFUL ---
+                        document.getElementById('user-id-display').textContent = `Restaurant ID: ${restaurantId} | User: ${user.email}`;
+                        authButton.classList.remove('hidden');
+                        authModal.classList.add('hidden'); 
+                        authModal.style.display = 'none'; // Explicitly hide the modal
+                        appMainContent.classList.remove('hidden'); 
+
+                        loadingMessage.textContent = "Authorized. Loading Menu Data...";
+
+                        // Define collection references using the UNIQUE RESTAURANT ID, NOT the User ID
+                        const menuPath = `artifacts/${appId}/users/${restaurantId}/restaurant_menu`;
+                        const ordersPath = `artifacts/${appId}/users/${restaurantId}/completed_orders`;
                         menuCollectionRef = collection(db, menuPath);
                         ordersCollectionRef = collection(db, ordersPath);
                         
                         // Start real-time subscription
                         subscribeToMenuChanges();
+
                     } else {
-                        // Sign in if not authenticated
+                        // User is signed out
+                        userId = null;
+                        restaurantId = null;
+                        appMainContent.classList.add('hidden');
+                        authButton.classList.add('hidden');
+                        
+                        // Fallback to anonymous sign-in (needed for platform environment), then force login
                         if (initialAuthToken) {
                             await signInWithCustomToken(auth, initialAuthToken);
                         } else {
                             await signInAnonymously(auth);
+                        }
+                        
+                        // If we are still here and anonymous, show the login modal
+                        if (auth.currentUser && auth.currentUser.isAnonymous) {
+                            showAuthModal(appId, 'Please Sign In with your restaurant credentials.');
                         }
                     }
                 });
@@ -400,13 +635,34 @@
                 document.getElementById('loading-message').classList.add('text-red-600');
             }
         }
+        
+        function showAuthModal(appId, message) {
+            loadingOverlay.classList.add('hidden'); // Ensure loader is hidden
+            authModal.classList.remove('hidden');
+            authModal.style.display = 'flex';
+            
+            // Set initial message and context
+            document.querySelector('#auth-modal h3').textContent = 'QuickServe Sign In (Subscription Required)';
+            authErrorMsg.textContent = message;
+            authErrorMsg.classList.remove('hidden');
+            authErrorMsg.classList.add('text-indigo-600');
+            
+            // Reset state
+            document.getElementById('auth-submit-btn').textContent = 'Sign In';
+            document.getElementById('auth-form').reset();
+            
+            lucide.createIcons();
+        }
 
         // Toggles interactive elements when the menu data is ready
         function toggleReadyState(isReady) {
             isMenuReady = isReady;
-            manageMenuBtn.disabled = !isReady;
-            viewSalesBtn.disabled = !isReady;
-            generateSpecialBtn.disabled = !isReady;
+            // Only toggle these if main content is visible (i.e., user is authenticated)
+            if (appMainContent.classList.contains('hidden') === false) {
+                manageMenuBtn.disabled = !isReady;
+                viewSalesBtn.disabled = !isReady;
+                generateSpecialBtn.disabled = !isReady;
+            }
 
             if (isReady) {
                 loadingOverlay.classList.add('opacity-0');
@@ -600,7 +856,47 @@
             currentOrder = [];
             renderOrder();
             document.getElementById('order-type').value = 'Table/Dine-In';
+            document.getElementById('selected-table').value = '';
+            // Reset all table buttons
+            document.querySelectorAll('.table-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            });
+            toggleTableSelection();
             customAlert("Current order cleared successfully.");
+        }
+
+        // Table selection functions
+        function selectTable(tableNumber) {
+            // Store selected table
+            document.getElementById('selected-table').value = tableNumber;
+            
+            // Update button styles
+            document.querySelectorAll('.table-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            });
+            
+            const selectedBtn = document.querySelector(`[data-table="${tableNumber}"]`);
+            selectedBtn.classList.remove('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            selectedBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+        }
+
+        function toggleTableSelection() {
+            const orderType = document.getElementById('order-type').value;
+            const tableContainer = document.getElementById('table-selection-container');
+            
+            if (orderType === 'Table/Dine-In') {
+                tableContainer.style.display = 'block';
+            } else {
+                tableContainer.style.display = 'none';
+                document.getElementById('selected-table').value = '';
+                // Reset table button styles
+                document.querySelectorAll('.table-btn').forEach(btn => {
+                    btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                    btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+                });
+            }
         }
 
         // --- ORDER SAVING & PRINTING ---
@@ -608,8 +904,9 @@
         /**
          * Saves the current order to the 'completed_orders' collection in Firestore.
          * @param {number} total The total payable amount.
+         * @param {string} orderTypeDisplay The display string for order type (e.g., "Table 5")
          */
-        async function saveCompletedOrder(total) {
+        async function saveCompletedOrder(total, orderTypeDisplay) {
             if (!ordersCollectionRef || currentOrder.length === 0) return;
 
             const orderData = {
@@ -623,9 +920,9 @@
                 totalPayable: total,
                 subtotal: parseFloat(document.getElementById('subtotal').textContent),
                 taxAmount: parseFloat(document.getElementById('tax-amount').textContent),
-                orderType: document.getElementById('order-type').value,
+                orderType: orderTypeDisplay,
                 timestamp: serverTimestamp(),
-                userId: userId,
+                restaurantId: restaurantId,
             };
 
             try {
@@ -643,11 +940,25 @@
                 return;
             }
 
-            const { subtotal, taxAmount, totalPayable } = calculateTotals();
             const orderType = document.getElementById('order-type').value;
+            const selectedTable = document.getElementById('selected-table').value;
+
+            // Validate table selection for dine-in orders
+            if (orderType === 'Table/Dine-In' && !selectedTable) {
+                customAlert("Please select a table number for dine-in orders.", "Table Required");
+                return;
+            }
+
+            const { subtotal, taxAmount, totalPayable } = calculateTotals();
+            
+            // Build order type string
+            let orderTypeDisplay = orderType;
+            if (orderType === 'Table/Dine-In' && selectedTable) {
+                orderTypeDisplay = `Table ${selectedTable}`;
+            }
 
             // 1. Save the order to history
-            saveCompletedOrder(totalPayable);
+            saveCompletedOrder(totalPayable, orderTypeDisplay);
 
             // 2. Generate the receipt HTML
             let receiptItems = currentOrder.map(item => `
@@ -664,9 +975,9 @@
                     <title>QuickServe Receipt</title>
                     <style>
                         body { margin: 0; padding: 0; }
-                        @page { margin: 0.5cm; } /* Minimal margin for clean thermal receipt printing */
+                        @page { margin: 0.5cm; }
                         .receipt {
-                            width: 58mm; /* Standard thermal receipt width */
+                            width: 58mm;
                             margin: 0 auto;
                             padding: 10px;
                             font-family: monospace;
@@ -680,10 +991,10 @@
                 <body>
                     <div class="receipt" id="receipt-content">
                         <h1 style="font-size: 14px; margin: 0 0 5px 0; font-weight: bold; text-align: center;">QUICKSERVE RESTAURANT</h1>
-                        <p style="font-size: 10px; margin: 0 0 10px 0; text-align: center;">Efficient Order Management</p>
+                        <p style="font-size: 10px; margin: 0 0 10px 0; text-align: center;">Restaurant ID: ${restaurantId}</p>
                         <hr>
                         <div style="text-align: left; margin-bottom: 5px;">
-                            <p style="font-size: 10px; margin: 2px 0;">Order Type: ${orderType}</p>
+                            <p style="font-size: 10px; margin: 2px 0; font-weight: bold;">Order: ${orderTypeDisplay}</p>
                             <p style="font-size: 10px; margin: 2px 0;">Date: ${new Date().toLocaleDateString()}</p>
                             <p style="font-size: 10px; margin: 2px 0;">Time: ${new Date().toLocaleTimeString()}</p>
                         </div>
@@ -714,9 +1025,6 @@
                 printWindow.document.close();
                 printWindow.focus();
                 printWindow.print();
-                printWindow.close(); // Close the window after printing
-                // Optionally close the window after print dialog is initiated
-                // printWindow.close(); 
             } else {
                 customAlert("Please allow pop-ups for the printing feature to work.", "Pop-up Blocked", 'error');
             }
@@ -956,7 +1264,12 @@
                 });
 
                 // Sort orders by timestamp DESC (newest first) in memory
-                orders.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+                orders.sort((a, b) => {
+                    // Safely handle potential null/undefined timestamps (though serverTimestamp should prevent this)
+                    const aTime = b.timestamp && b.timestamp.toMillis ? b.timestamp.toMillis() : 0;
+                    const bTime = a.timestamp && a.timestamp.toMillis ? a.timestamp.toMillis() : 0;
+                    return aTime - bTime;
+                });
 
                 if (orders.length === 0) {
                     historyContent.innerHTML = `<p class="text-gray-500 text-center italic mt-4 p-8">No completed orders found in history.</p>`;
@@ -1027,7 +1340,7 @@
 
             const menuList = menuItems.map(item => `${item.name} (${item.category}) - ₹${item.price.toFixed(2)}`).join('\n');
             
-            const systemPrompt = "You are a creative executive chef and menu consultant for a modern Indian restaurant. Your task is to invent one new, exciting dish that complements the existing menu. The dish must be a limited-time 'Daily Special'. Provide a descriptive name, a compelling description, and a realistic price in INR. The price should be slightly premium (20% higher than the average dish). Do not use markdown formatting in the output, only the JSON structure.";
+            const systemPrompt = "You are a creative executive chef and menu consultant for a modern Indian restaurant. Your task is to invent one new, exciting vegetarian dish that complements the existing menu. The dish must be a limited-time 'Daily Special'. Provide a descriptive name, a compelling description, and a realistic price in INR. The price should be slightly premium (20% higher than the average dish). Do not use markdown formatting in the output, only the JSON structure.";
             
             const userQuery = `My current menu items are:\n---\n${menuList}\n---\nBased on this, suggest one creative and compelling vegetarian Daily Special.`;
 
@@ -1111,6 +1424,12 @@
             // Set up search listener
             document.getElementById('search-input').addEventListener('keyup', renderMenu);
 
+            // Set up order type change listener
+            document.getElementById('order-type').addEventListener('change', toggleTableSelection);
+
+            // Initialize table selection visibility
+            toggleTableSelection();
+
             // Re-render the current order state (will be empty on load)
             renderOrder();
             
@@ -1135,6 +1454,10 @@
         window.deleteMenuItem = deleteMenuItem;
         window.showOrderHistoryModal = showOrderHistoryModal;
         window.hideOrderHistoryModal = hideOrderHistoryModal;
+        window.handleAuth = handleAuth;
+        window.signOutUser = signOutUser;
+        window.selectTable = selectTable;
+        window.toggleTableSelection = toggleTableSelection;
     </script>
 </body>
 </html>
