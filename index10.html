@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickServe Billing System</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load PapaParse for CSV handling -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom styles for print output (receipt) */
+        @media print {
+            body > * {
+                visibility: hidden;
+            }
+            #receipt-print-area, #receipt-print-area * {
+                visibility: visible;
+            }
+            #receipt-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 58mm; /* Standard thermal receipt width */
+                margin: 0;
+                padding: 10px;
+                font-family: monospace;
+                font-size: 10px;
+            }
+            .no-print {
+                display: none !important;
+            }
+            @page {
+                margin: 0.5cm; /* Minimal margin for clean thermal receipt printing */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans min-h-screen">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white/90 z-50 flex flex-col items-center justify-center transition-opacity duration-300">
+        <svg class="animate-spin h-8 w-8 text-indigo-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p id="loading-message" class="text-indigo-600 font-medium">Initializing application...</p>
+        <p id="user-info" class="text-xs text-gray-500 mt-2"></p>
+    </div>
+
+    <header class="bg-indigo-600 shadow-lg text-white p-4">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center">
+            <h1 class="text-3xl font-extrabold tracking-tight">QuickServe Billing System</h1>
+            <div class="flex items-center mt-2 sm:mt-0">
+                <p id="user-id-display" class="text-sm font-light opacity-75 mr-4"></p>
+                <button id="auth-button" onclick="signOutUser()" class="px-3 py-1 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-semibold hidden">
+                    <i data-lucide="log-out" class="w-4 h-4 inline mr-1"></i> Sign Out
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area - Initially Hidden -->
+    <main id="app-main-content" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 hidden">
+
+        <!-- Restaurant Menu Panel -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Restaurant Menu</h2>
+
+            <!-- Control Bar -->
+            <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                <input type="text" id="search-input" onkeyup="renderMenu()" placeholder="Search menu by name, category, or initials (e.g., 'cp' for 'Chhola Puri')..."
+                    class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                
+                <button id="manage-menu-btn" onclick="showManageMenuModal()" disabled
+                    class="px-4 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center">
+                    <i data-lucide="utensils" class="w-5 h-5 mr-1"></i> Manage Menu
+                </button>
+                <button id="view-sales-btn" onclick="showOrderHistoryModal()" disabled
+                    class="px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5 mr-1"></i> View Sales
+                </button>
+            </div>
+
+            <!-- AI Special Section -->
+            <div class="bg-yellow-100 p-4 rounded-lg shadow-inner mb-6 flex flex-col sm:flex-row items-center justify-between border-l-4 border-yellow-500">
+                <p class="text-sm text-yellow-800 font-medium mb-2 sm:mb-0">
+                    Use AI to generate a fresh special every day!
+                </p>
+                <button id="generate-special-btn" onclick="generateDailySpecial()" disabled
+                    class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center">
+                    <i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i> Generate Daily Special
+                </button>
+            </div>
+
+
+            <!-- Menu Items Container -->
+            <div id="menu-items-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
+                <!-- Menu items will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Current Order Panel -->
+        <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100 sticky top-8 h-fit">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Current Order</h2>
+            
+            <div class="mb-4">
+                <label for="order-type" class="block text-sm font-medium text-gray-700 mb-1">Order For</label>
+                <select id="order-type" onchange="toggleTableSelection()" class="w-full p-2 border border-gray-300 rounded-lg">
+                    <option value="Table/Dine-In">Table/Dine-In</option>
+                    <option value="Parcel/Takeaway">Parcel/Takeaway</option>
+                </select>
+            </div>
+
+            <!-- Table Number Selection (shown only for Dine-In) -->
+            <div id="table-selection-container" class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Select Table Number</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="selectTable(1)" data-table="1" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 1
+                    </button>
+                    <button type="button" onclick="selectTable(2)" data-table="2" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 2
+                    </button>
+                    <button type="button" onclick="selectTable(3)" data-table="3" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 3
+                    </button>
+                    <button type="button" onclick="selectTable(4)" data-table="4" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 4
+                    </button>
+                    <button type="button" onclick="selectTable(5)" data-table="5" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 5
+                    </button>
+                    <button type="button" onclick="selectTable(6)" data-table="6" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 6
+                    </button>
+                    <button type="button" onclick="selectTable(7)" data-table="7" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 7
+                    </button>
+                    <button type="button" onclick="selectTable(8)" data-table="8" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 8
+                    </button>
+                    <button type="button" onclick="selectTable(9)" data-table="9" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                        Table 9
+                    </button>
+                </div>
+                <input type="hidden" id="selected-table" value="">
+            </div>
+
+            <!-- Order List -->
+            <div id="current-order-list" class="space-y-3 min-h-[100px] max-h-[40vh] overflow-y-auto">
+                <!-- Order items will be rendered here -->
+                <p id="empty-order-message" class="text-gray-400 text-center italic mt-4">No items added yet.</p>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                <div class="flex justify-between text-sm font-medium text-gray-600">
+                    <span>Subtotal:</span>
+                    <span id="subtotal">0.00</span>
+                </div>
+                <div class="flex justify-between text-sm font-medium text-gray-600">
+                    <span>Tax (5.00%):</span>
+                    <span id="tax-amount">0.00</span>
+                </div>
+                <div class="flex justify-between text-lg font-bold text-indigo-600 border-t pt-2 mt-2">
+                    <span>Total Payable:</span>
+                    <span id="total-payable">0.00</span>
+                </div>
+            </div>
+
+            <button onclick="printBill()"
+                class="w-full mt-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-lg transition duration-150">
+                <i data-lucide="printer" class="w-5 h-5 inline mr-2"></i> Print Bill
+            </button>
+            <button onclick="clearOrder()"
+                class="w-full mt-2 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-md transition duration-150">
+                Clear Order
+            </button>
+        </div>
+    </main>
+    
+    <!-- AUTHENTICATION MODAL (STRICTLY SIGN IN ONLY) -->
+    <div id="auth-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 transform transition-all">
+            <h3 class="text-3xl font-bold text-indigo-600 mb-4 text-center">QuickServe Sign In (Subscription Required)</h3>
+            <p id="auth-error-message" class="text-red-500 text-sm mb-4 text-center hidden"></p>
+            
+            <form id="auth-form" onsubmit="event.preventDefault(); handleAuth()">
+                <div class="space-y-4">
+                    <div>
+                        <label for="auth-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input type="email" id="auth-email" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="staff@restaurant.com">
+                    </div>
+                    <div>
+                        <label for="auth-password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="auth-password" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="********">
+                    </div>
+                    
+                    <button type="submit" id="auth-submit-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition duration-150">
+                        Sign In
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-500">This service requires an active restaurant subscription. New users must be manually registered by the service administrator.</p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal for Menu Management (Add, Import, Edit, Delete) -->
+    <div id="manage-menu-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 transform transition-all">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
+                Menu Management
+                <button onclick="hideManageMenuModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </h3>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Column 1: Add/Edit and Bulk Import Forms -->
+                <div>
+                    <h4 class="text-xl font-semibold mb-4 text-indigo-600">1. Add or Edit Item</h4>
+                    
+                    <form id="add-edit-item-form" onsubmit="event.preventDefault(); saveMenuItem()">
+                        <input type="hidden" id="item-id-to-edit">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="item-name" class="block text-sm font-medium text-gray-700">Name</label>
+                                <input type="text" id="item-name" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="item-price" class="block text-sm font-medium text-gray-700">Price (₹)</label>
+                                    <input type="number" id="item-price" step="0.01" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <label for="item-category" class="block text-sm font-medium text-gray-700">Category</label>
+                                    <input type="text" id="item-category" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                            </div>
+                            <button type="submit" id="add-save-btn"
+                                class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
+                                <i data-lucide="plus" class="w-4 h-4 inline mr-1"></i> Add Item
+                            </button>
+                        </div>
+                    </form>
+
+                    <h4 class="text-xl font-semibold my-4 pt-4 border-t text-indigo-600">2. Bulk Import (CSV)</h4>
+                    <p class="text-xs text-gray-500 mb-2">Upload a CSV file with columns: **Name**, **Price**, **Category**</p>
+                    <form id="bulk-import-form" onsubmit="event.preventDefault(); handleCSVUpload()">
+                        <input type="file" id="csv-file-input" accept=".csv" required 
+                                class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                        <button type="submit" class="w-full mt-3 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
+                            <i data-lucide="upload" class="w-4 h-4 inline mr-1"></i> Import CSV
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Column 2: Current Menu List for Editing/Deleting -->
+                <div>
+                    <h4 class="text-xl font-semibold mb-4 text-indigo-600">3. Current Menu (Edit/Delete)</h4>
+                    <div id="menu-management-list" class="max-h-[60vh] overflow-y-auto p-2 border border-gray-200 rounded-lg space-y-2">
+                        <!-- Items list for edit/delete will render here -->
+                        <p class="text-gray-400 text-center italic mt-4">Loading menu...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t flex justify-end">
+                <button onclick="hideManageMenuModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold transition duration-150">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Sales History -->
+    <div id="order-history-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 transform transition-all">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
+                Daily Sales History
+                <button onclick="hideOrderHistoryModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </h3>
+
+            <div id="order-history-content" class="max-h-[70vh] overflow-y-auto space-y-4">
+                <!-- Sales data will be rendered here -->
+                <p class="text-gray-400 text-center italic mt-4">Fetching sales data...</p>
+            </div>
+
+            <div class="mt-6 pt-4 border-t flex justify-end">
+                <button onclick="hideOrderHistoryModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold transition duration-150">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal for Custom Alert/Confirm (Replaces alert() and confirm()) -->
+    <div id="custom-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all">
+            <h4 id="modal-title" class="text-lg font-bold text-red-600 mb-3">Attention</h4>
+            <p id="modal-message" class="text-gray-700 mb-6">Message content.</p>
+            <div id="modal-actions" class="flex justify-end space-x-3">
+                <!-- Action buttons will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Print Area (Hidden by default, used only for printing) -->
+    <div id="receipt-print-area" class="no-print"></div>
+
+
+    <script type="module">
+        // Import necessary Firebase modules, including auth
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, orderBy, limit, getDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase instances
+        let app = null;
+        let db = null;
+        let auth = null;
+        let userId = null;
+        let restaurantId = null; // New variable to store the authorized restaurant ID
+        let menuCollectionRef = null;
+        let ordersCollectionRef = null;
+        
+        // App State
+        let menuItems = [];
+        let currentOrder = [];
+        let isMenuReady = false;
+        
+        // Constants
+        const TAX_RATE = 0.05; // 5%
+        const PROXY_API_URL = 'http://localhost:3000/api/generate-special'; 
+        // Define a global, publicly accessible path for the whitelist/tenant management
+        const TENANT_WHITELIST_PATH = 'artifacts/global/public/data/restaurant_tenants'; 
+        
+        // UI Elements
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingMessage = document.getElementById('loading-message');
+        const appMainContent = document.getElementById('app-main-content');
+        const authModal = document.getElementById('auth-modal');
+        const authSubmitBtn = document.getElementById('auth-submit-btn');
+        const authErrorMsg = document.getElementById('auth-error-message');
+        const authButton = document.getElementById('auth-button');
+        const menuContainer = document.getElementById('menu-items-container');
+        const orderList = document.getElementById('current-order-list');
+        const manageMenuBtn = document.getElementById('manage-menu-btn');
+        const viewSalesBtn = document.getElementById('view-sales-btn');
+        const generateSpecialBtn = document.getElementById('generate-special-btn');
+        const addSaveBtn = document.getElementById('add-save-btn');
+
+
+        // --- UTILITY FUNCTIONS (Replaces alert/confirm) ---
+
+        /**
+         * Replaces window.alert() with a custom modal.
+         * @param {string} message The message to display.
+         * @param {string} title The title of the alert.
+         * @param {string} type 'alert' or 'error'
+         */
+        function customAlert(message, title = 'Attention', type = 'alert') {
+            const modal = document.getElementById('custom-modal');
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').textContent = message;
+            document.getElementById('modal-title').classList.toggle('text-red-600', type === 'error');
+            document.getElementById('modal-title').classList.toggle('text-indigo-600', type === 'alert');
+
+            const actions = document.getElementById('modal-actions');
+            actions.innerHTML = `
+                <button id="modal-ok-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg">OK</button>
+            `;
+            modal.style.display = 'flex';
+
+            document.getElementById('modal-ok-btn').onclick = () => {
+                modal.style.display = 'none';
+            };
+        }
+
+        /**
+         * Replaces window.confirm() with a custom modal.
+         * @param {string} message The confirmation message.
+         * @param {string} title The title of the confirmation box.
+         * @returns {Promise<boolean>} Resolves to true if confirmed, false otherwise.
+         */
+        function customConfirm(message, title = 'Confirm Action') {
+            return new Promise(resolve => {
+                const modal = document.getElementById('custom-modal');
+                document.getElementById('modal-title').textContent = title;
+                document.getElementById('modal-message').textContent = message;
+                document.getElementById('modal-title').classList.remove('text-red-600');
+                document.getElementById('modal-title').classList.add('text-indigo-600');
+
+                const actions = document.getElementById('modal-actions');
+                actions.innerHTML = `
+                    <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold">Cancel</button>
+                    <button id="modal-confirm-btn" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg">Confirm</button>
+                `;
+                modal.style.display = 'flex';
+
+                document.getElementById('modal-cancel-btn').onclick = () => {
+                    modal.style.display = 'none';
+                    resolve(false);
+                };
+                document.getElementById('modal-confirm-btn').onclick = () => {
+                    modal.style.display = 'none';
+                    resolve(true);
+                };
+            });
+        }
+
+
+        // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
+        
+        /**
+         * Converts Firebase error codes to user-friendly messages.
+         * @param {string} code Firebase Auth error code
+         * @returns {string} User-friendly message
+         */
+        function formatAuthError(code) {
+            switch (code) {
+                case 'auth/invalid-email':
+                    return 'Invalid email address format.';
+                case 'auth/user-disabled':
+                    return 'This account has been disabled.';
+                case 'auth/user-not-found':
+                    return 'No account found with this email.';
+                case 'auth/wrong-password':
+                    return 'Incorrect password.';
+                case 'auth/email-already-in-use':
+                    return 'This email is already registered.';
+                case 'auth/weak-password':
+                    return 'Password must be at least 6 characters long.';
+                case 'auth/operation-not-allowed':
+                    return 'Email/Password sign-in is not enabled in Firebase settings.';
+                default:
+                    return `Authentication error: ${code.replace('auth/', '').replace(/-/g, ' ')}.`;
+            }
+        }
+
+        // Handles the Sign In process
+        async function handleAuth() {
+            authErrorMsg.classList.add('hidden');
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            
+            if (!email || !password) {
+                authErrorMsg.textContent = "Please enter both email and password.";
+                authErrorMsg.classList.remove('hidden');
+                return;
+            }
+
+            authSubmitBtn.disabled = true;
+            authSubmitBtn.textContent = 'Signing In...';
+
+            try {
+                // Sign in with Email and Password
+                await signInWithEmailAndPassword(auth, email, password);
+                
+                // The onAuthStateChanged listener will now handle the next steps (Authorization Check)
+
+            } catch (error) {
+                console.error("Authentication Error:", error);
+                authErrorMsg.textContent = formatAuthError(error.code);
+                authErrorMsg.classList.remove('hidden');
+            } finally {
+                authSubmitBtn.disabled = false;
+                authSubmitBtn.textContent = 'Sign In';
+            }
+        }
+        
+        async function signOutUser() {
+            const confirmed = await customConfirm("Are you sure you want to sign out?", "Confirm Sign Out");
+            if (confirmed) {
+                try {
+                    // Clear local restaurant ID when signing out
+                    restaurantId = null; 
+                    await signOut(auth);
+                    customAlert("Successfully signed out.", "Signed Out", 'alert');
+                } catch (error) {
+                    console.error("Sign Out Error:", error);
+                    customAlert("Error signing out.", "Sign Out Failed", 'error');
+                }
+            }
+        }
+        
+        /**
+         * Checks if the user's UID is whitelisted as a tenant/subscriber.
+         * On success, sets the global restaurantId to the tenant's ID.
+         * @param {string} uid The Firebase User ID
+         * @returns {Promise<string|null>} The restaurant ID if authorized, otherwise null.
+         */
+        async function checkSubscriptionAuthorization(uid) {
+            if (!db) return null;
+
+            try {
+                // CRITICAL FIX: Use a document path directly instead of a query
+                // This avoids the need for composite indexes
+                const tenantDocRef = doc(db, TENANT_WHITELIST_PATH, uid);
+                const tenantDocSnap = await getDoc(tenantDocRef);
+
+                if (!tenantDocSnap.exists()) {
+                    console.log(`Authorization failed for UID: ${uid}. Not found in tenant whitelist.`);
+                    return null;
+                }
+
+                // Authorized! Extract the restaurantId field
+                const rId = tenantDocSnap.data().restaurantId;
+                
+                if (!rId) {
+                    console.error("Whitelist document found but 'restaurantId' field is missing or empty.");
+                    return null;
+                }
+                
+                console.log(`✅ User ${uid} authorized for restaurant: ${rId}`);
+                return rId;
+
+            } catch (error) {
+                console.error("Error during authorization check:", error);
+                return null;
+            }
+        }
+
+
+        async function initializeFirebase() {
+            setLogLevel('debug');
+            loadingMessage.textContent = "Initializing Firebase...";
+            try {
+
+                // ** --- START: Environment Variables for Firebase --- **
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+                    apiKey: "AIzaSyBTUoWpZHUq94JlGjhEjpQR6WbQjfTBY10",
+                    authDomain: "restaurant-75c8e.firebaseapp.com",
+                    projectId: "restaurant-75c8e",
+                    storageBucket: "restaurant-75c8e.firebasestorage.app",
+                    messagingSenderId: "86933612469",
+                    appId: "1:86933612469:web:d3a0f03542a4e3830f1bfc",
+                    measurementId: "G-8155CPE1WJ"
+                };
+                
+                // CRITICAL FIX: Explicitly use the projectId as the appId for consistent path construction 
+                // to match the security rules.
+                const appId = firebaseConfig.projectId; 
+                
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                // ** --- END: Environment Variables for Firebase --- **
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Set up authentication listener
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        
+                        // Check if the user is anonymous (default state if no credentials are used)
+                        if (user.isAnonymous) {
+                             // Attempt to sign in with custom token if available, otherwise force login modal
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } 
+                            // If still anonymous, we must force the user to sign in
+                            if (auth.currentUser && auth.currentUser.isAnonymous) {
+                                showAuthModal(appId, 'Please Sign In with your restaurant credentials.');
+                            }
+                            return; 
+                        }
+
+                        // --- STEP 1: Authorization Check for Non-Anonymous User ---
+                        restaurantId = await checkSubscriptionAuthorization(userId);
+                        
+                        if (!restaurantId) {
+                            // Authorization Failed: The user is logged in but not a whitelisted tenant
+                            console.warn(`User ${user.email} is not an authorized tenant.`);
+                            await signOut(auth); // Force sign out
+                            showAuthModal(appId, 'Access Denied. Your restaurant email is not whitelisted for this service.');
+                            return;
+                        }
+
+
+                        // --- STEP 2: Authorization SUCCESSFUL ---
+                        document.getElementById('user-id-display').textContent = `Restaurant ID: ${restaurantId} | User: ${user.email}`;
+                        authButton.classList.remove('hidden');
+                        authModal.classList.add('hidden'); 
+                        authModal.style.display = 'none'; // Explicitly hide the modal
+                        appMainContent.classList.remove('hidden'); 
+
+                        loadingMessage.textContent = "Authorized. Loading Menu Data...";
+
+                        // Define collection references using the UNIQUE RESTAURANT ID, NOT the User ID
+                        const menuPath = `artifacts/${appId}/users/${restaurantId}/restaurant_menu`;
+                        const ordersPath = `artifacts/${appId}/users/${restaurantId}/completed_orders`;
+                        menuCollectionRef = collection(db, menuPath);
+                        ordersCollectionRef = collection(db, ordersPath);
+                        
+                        // Start real-time subscription
+                        subscribeToMenuChanges();
+
+                    } else {
+                        // User is signed out
+                        userId = null;
+                        restaurantId = null;
+                        appMainContent.classList.add('hidden');
+                        authButton.classList.add('hidden');
+                        
+                        // Fallback to anonymous sign-in (needed for platform environment), then force login
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                        
+                        // If we are still here and anonymous, show the login modal
+                        if (auth.currentUser && auth.currentUser.isAnonymous) {
+                            showAuthModal(appId, 'Please Sign In with your restaurant credentials.');
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                loadingMessage.textContent = `Error: ${error.message}. Please check console and Firebase settings.`;
+                loadingOverlay.classList.remove('opacity-90', 'flex');
+                loadingOverlay.classList.add('bg-red-100', 'flex');
+                document.getElementById('loading-message').classList.add('text-red-600');
+            }
+        }
+        
+        function showAuthModal(appId, message) {
+            loadingOverlay.classList.add('hidden'); // Ensure loader is hidden
+            authModal.classList.remove('hidden');
+            authModal.style.display = 'flex';
+            
+            // Set initial message and context
+            document.querySelector('#auth-modal h3').textContent = 'QuickServe Sign In (Subscription Required)';
+            authErrorMsg.textContent = message;
+            authErrorMsg.classList.remove('hidden');
+            authErrorMsg.classList.add('text-indigo-600');
+            
+            // Reset state
+            document.getElementById('auth-submit-btn').textContent = 'Sign In';
+            document.getElementById('auth-form').reset();
+            
+            lucide.createIcons();
+        }
+
+        // Toggles interactive elements when the menu data is ready
+        function toggleReadyState(isReady) {
+            isMenuReady = isReady;
+            // Only toggle these if main content is visible (i.e., user is authenticated)
+            if (appMainContent.classList.contains('hidden') === false) {
+                manageMenuBtn.disabled = !isReady;
+                viewSalesBtn.disabled = !isReady;
+                generateSpecialBtn.disabled = !isReady;
+            }
+
+            if (isReady) {
+                loadingOverlay.classList.add('opacity-0');
+                setTimeout(() => {
+                    loadingOverlay.classList.add('hidden');
+                }, 300);
+                // Ensure lucide icons are rendered after loading
+                lucide.createIcons();
+            }
+        }
+
+        function subscribeToMenuChanges() {
+            if (!menuCollectionRef) return;
+            
+            // Set up a real-time listener for the menu items
+            onSnapshot(menuCollectionRef, (snapshot) => {
+                const newMenuItems = [];
+                snapshot.forEach(doc => {
+                    // Store the Firestore document ID in the item object
+                    newMenuItems.push({ id: doc.id, ...doc.data() });
+                });
+                menuItems = newMenuItems;
+                
+                // Rerender the menu and management list immediately
+                renderMenu();
+                renderManagementList();
+
+                // If this is the first successful load, set the ready state
+                if (!isMenuReady) {
+                    toggleReadyState(true);
+                }
+            }, (error) => {
+                console.error("Error subscribing to menu changes:", error);
+                customAlert("Failed to load menu data. Check permissions in Firebase.", "Database Error", 'error');
+                toggleReadyState(false);
+            });
+        }
+
+
+        // --- MENU LOGIC (RENDER & FILTER) ---
+
+        /**
+         * Checks if a search term matches the initials of the item name (e.g., 'cp' for 'Chhola Puri').
+         * @param {string} itemName 
+         * @param {string} searchTerm 
+         * @returns {boolean}
+         */
+        function matchesInitialism(itemName, searchTerm) {
+            const normalizedSearch = searchTerm.toLowerCase().replace(/\s/g, '');
+            if (normalizedSearch.length === 0) return true;
+
+            const words = itemName.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+            if (words.length === 0) return false;
+
+            let initialism = '';
+            for (const word of words) {
+                initialism += word[0];
+            }
+
+            // Check if the search term is an initialism of the item name
+            return initialism.startsWith(normalizedSearch);
+        }
+
+        function renderMenu() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const filteredItems = menuItems.filter(item => {
+                // Check for full text match in name or category
+                const textMatch = item.name.toLowerCase().includes(searchTerm) || 
+                                  item.category.toLowerCase().includes(searchTerm);
+                
+                // Check for initialism match in name
+                const initialismMatch = matchesInitialism(item.name, searchTerm);
+
+                return textMatch || initialismMatch;
+            });
+
+            menuContainer.innerHTML = '';
+
+            if (filteredItems.length === 0) {
+                menuContainer.innerHTML = `<p class="text-gray-400 text-center italic mt-4 col-span-2">No items found matching "${searchTerm}".</p>`;
+                return;
+            }
+
+            filteredItems.forEach(item => {
+                const isSpecial = item.isSpecial === true;
+                const cardClass = isSpecial 
+                    ? 'bg-yellow-50 border-yellow-300 hover:bg-yellow-100 shadow-md ring-2 ring-yellow-400' 
+                    : 'bg-white border-gray-200 hover:bg-gray-50 shadow-sm';
+                
+                const html = `
+                    <div onclick="addItemToOrderById('${item.id}')" 
+                        class="p-4 rounded-xl border cursor-pointer transition duration-150 transform hover:scale-[1.01] ${cardClass}">
+                        <div class="flex justify-between items-start">
+                            <h4 class="text-lg font-semibold text-gray-800">${item.name}</h4>
+                            <span class="text-xl font-bold text-indigo-600">₹${item.price.toFixed(2)}</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">${item.category}</p>
+                        ${isSpecial ? `<p class="text-xs text-yellow-700 mt-2 font-medium italic">${item.description || 'Daily AI Special'}</p>` : ''}
+                    </div>
+                `;
+                menuContainer.innerHTML += html;
+            });
+            // Re-render lucide icons after injecting new HTML
+            lucide.createIcons(); 
+        }
+
+
+        // --- CURRENT ORDER LOGIC ---
+
+        // New function to handle item selection using only the ID
+        function addItemToOrderById(itemId) {
+            const item = menuItems.find(i => i.id === itemId);
+            if (!item) {
+                console.error("Item not found in menuItems array:", itemId);
+                return;
+            }
+            addItemToOrder(item.id, item.name, item.price);
+        }
+
+        function addItemToOrder(itemId, itemName, itemPrice) {
+            const existingItem = currentOrder.find(item => item.id === itemId);
+
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                currentOrder.push({
+                    id: itemId,
+                    name: itemName,
+                    price: itemPrice,
+                    quantity: 1
+                });
+            }
+            renderOrder();
+        }
+
+        function updateQuantity(itemId, delta) {
+            const itemIndex = currentOrder.findIndex(item => item.id === itemId);
+            if (itemIndex > -1) {
+                currentOrder[itemIndex].quantity += delta;
+                
+                if (currentOrder[itemIndex].quantity <= 0) {
+                    currentOrder.splice(itemIndex, 1); // Remove item if quantity is zero or less
+                }
+            }
+            renderOrder();
+        }
+
+        function calculateTotals() {
+            let subtotal = currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            let taxAmount = subtotal * TAX_RATE;
+            let totalPayable = subtotal + taxAmount;
+
+            document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+            document.getElementById('tax-amount').textContent = taxAmount.toFixed(2);
+            document.getElementById('total-payable').textContent = totalPayable.toFixed(2);
+            
+            return { subtotal, taxAmount, totalPayable };
+        }
+
+        function renderOrder() {
+            orderList.innerHTML = '';
+            
+            const emptyMessageElement = document.getElementById('empty-order-message');
+            
+            if (currentOrder.length === 0) {
+                if (emptyMessageElement) emptyMessageElement.style.display = 'block';
+            } else {
+                if (emptyMessageElement) emptyMessageElement.style.display = 'none';
+                
+                currentOrder.forEach(item => {
+                    const itemTotal = (item.price * item.quantity).toFixed(2);
+                    orderList.innerHTML += `
+                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg shadow-sm">
+                            <div class="flex-grow">
+                                <span class="font-medium text-gray-800">${item.name}</span>
+                                <span class="text-xs text-gray-500 block">₹${item.price.toFixed(2)} x ${item.quantity}</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-semibold text-gray-700 mr-2">₹${itemTotal}</span>
+                                <button onclick="updateQuantity('${item.id}', -1)" class="text-white bg-red-400 hover:bg-red-500 w-6 h-6 rounded-full text-sm">-</button>
+                                <button onclick="updateQuantity('${item.id}', 1)" class="text-white bg-green-400 hover:bg-green-500 w-6 h-6 rounded-full text-sm">+</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            calculateTotals();
+        }
+
+        function clearOrder() {
+            currentOrder = [];
+            renderOrder();
+            document.getElementById('order-type').value = 'Table/Dine-In';
+            document.getElementById('selected-table').value = '';
+            // Reset all table buttons
+            document.querySelectorAll('.table-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            });
+            toggleTableSelection();
+            customAlert("Current order cleared successfully.");
+        }
+
+        // Table selection functions
+        function selectTable(tableNumber) {
+            // Store selected table
+            document.getElementById('selected-table').value = tableNumber;
+            
+            // Update button styles
+            document.querySelectorAll('.table-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            });
+            
+            const selectedBtn = document.querySelector(`[data-table="${tableNumber}"]`);
+            selectedBtn.classList.remove('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            selectedBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+        }
+
+        function toggleTableSelection() {
+            const orderType = document.getElementById('order-type').value;
+            const tableContainer = document.getElementById('table-selection-container');
+            
+            if (orderType === 'Table/Dine-In') {
+                tableContainer.style.display = 'block';
+            } else {
+                tableContainer.style.display = 'none';
+                document.getElementById('selected-table').value = '';
+                // Reset table button styles
+                document.querySelectorAll('.table-btn').forEach(btn => {
+                    btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                    btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+                });
+            }
+        }
+
+        // --- ORDER SAVING & PRINTING ---
+
+        /**
+         * Saves the current order to the 'completed_orders' collection in Firestore.
+         * @param {number} total The total payable amount.
+         * @param {string} orderTypeDisplay The display string for order type (e.g., "Table 5")
+         */
+        async function saveCompletedOrder(total, orderTypeDisplay) {
+            if (!ordersCollectionRef || currentOrder.length === 0) return;
+
+            const orderData = {
+                items: currentOrder.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    total: item.price * item.quantity
+                })),
+                totalPayable: total,
+                subtotal: parseFloat(document.getElementById('subtotal').textContent),
+                taxAmount: parseFloat(document.getElementById('tax-amount').textContent),
+                orderType: orderTypeDisplay,
+                timestamp: serverTimestamp(),
+                restaurantId: restaurantId,
+            };
+
+            try {
+                await addDoc(ordersCollectionRef, orderData);
+                console.log("Order saved successfully to history.");
+            } catch (error) {
+                console.error("Error saving order to history:", error);
+                customAlert("Failed to save order to sales history. Check console.", "Save Error", 'error');
+            }
+        }
+
+        function printBill() {
+            if (currentOrder.length === 0) {
+                customAlert("Please add items to the order before printing the bill.", "Empty Order");
+                return;
+            }
+
+            const orderType = document.getElementById('order-type').value;
+            const selectedTable = document.getElementById('selected-table').value;
+
+            // Validate table selection for dine-in orders
+            if (orderType === 'Table/Dine-In' && !selectedTable) {
+                customAlert("Please select a table number for dine-in orders.", "Table Required");
+                return;
+            }
+
+            const { subtotal, taxAmount, totalPayable } = calculateTotals();
+            
+            // Build order type string
+            let orderTypeDisplay = orderType;
+            if (orderType === 'Table/Dine-In' && selectedTable) {
+                orderTypeDisplay = `Table ${selectedTable}`;
+            }
+
+            // 1. Save the order to history
+            saveCompletedOrder(totalPayable, orderTypeDisplay);
+
+            // 2. Generate the receipt HTML
+            let receiptItems = currentOrder.map(item => `
+                <div style="display:flex; justify-content:space-between; font-size: 10px;">
+                    <span>${item.name} (x${item.quantity})</span>
+                    <span>₹${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+            `).join('');
+
+            const receiptHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>QuickServe Receipt</title>
+                    <style>
+                        body { margin: 0; padding: 0; }
+                        @page { margin: 0.5cm; }
+                        .receipt {
+                            width: 58mm;
+                            margin: 0 auto;
+                            padding: 10px;
+                            font-family: monospace;
+                            font-size: 10px;
+                            line-height: 1.4;
+                            color: #000;
+                        }
+                        hr { border-top: 1px dashed black; margin: 5px 0; border-bottom: none; }
+                    </style>
+                </head>
+                <body>
+                    <div class="receipt" id="receipt-content">
+                        <h1 style="font-size: 14px; margin: 0 0 5px 0; font-weight: bold; text-align: center;">QUICKSERVE RESTAURANT</h1>
+                        <p style="font-size: 10px; margin: 0 0 10px 0; text-align: center;">Restaurant ID: ${restaurantId}</p>
+                        <hr>
+                        <div style="text-align: left; margin-bottom: 5px;">
+                            <p style="font-size: 10px; margin: 2px 0; font-weight: bold;">Order: ${orderTypeDisplay}</p>
+                            <p style="font-size: 10px; margin: 2px 0;">Date: ${new Date().toLocaleDateString()}</p>
+                            <p style="font-size: 10px; margin: 2px 0;">Time: ${new Date().toLocaleTimeString()}</p>
+                        </div>
+                        <hr>
+                        
+                        <div style="text-align: left; margin-top: 10px; margin-bottom: 10px; font-weight: bold;">
+                            ${receiptItems}
+                        </div>
+                        
+                        <hr>
+                        <div style="text-align: right; margin-top: 5px;">
+                            <div style="display:flex; justify-content:space-between; font-size: 10px;"><span>Subtotal:</span><span>₹${subtotal.toFixed(2)}</span></div>
+                            <div style="display:flex; justify-content:space-between; font-size: 10px;"><span>Tax (5.00%):</span><span>₹${taxAmount.toFixed(2)}</span></div>
+                            <div style="display:flex; justify-content:space-between; font-size: 12px; margin-top: 5px; font-weight: bold;"><span>TOTAL:</span><span>₹${totalPayable.toFixed(2)}</span></div>
+                        </div>
+                        
+                        <hr>
+                        <p style="font-size: 10px; margin-top: 10px; text-align: center;">Thank You! Visit Again.</p>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // 3. Open a new window, write HTML, and print
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(receiptHTML);
+                printWindow.document.close();
+                printWindow.focus();
+                printWindow.print();
+            } else {
+                customAlert("Please allow pop-ups for the printing feature to work.", "Pop-up Blocked", 'error');
+            }
+            
+            // 4. Clear the order after printing
+            clearOrder();
+        }
+
+
+        // --- MENU MANAGEMENT (ADD/EDIT/DELETE/CSV) ---
+
+        function showManageMenuModal() {
+            if (!isMenuReady) {
+                customAlert("Please wait until the app is fully initialized and menu data is loaded.", "Not Ready");
+                return;
+            }
+            document.getElementById('manage-menu-modal').style.display = 'flex';
+            // Render the list of current items for editing/deleting
+            renderManagementList(); 
+        }
+
+        function hideManageMenuModal() {
+            document.getElementById('manage-menu-modal').style.display = 'none';
+            // Reset the form state
+            document.getElementById('add-edit-item-form').reset();
+            document.getElementById('item-id-to-edit').value = '';
+            addSaveBtn.textContent = 'Add Item';
+            lucide.createIcons();
+        }
+
+        // Renders the list of menu items inside the management modal for editing/deleting
+        function renderManagementList() {
+            const listContainer = document.getElementById('menu-management-list');
+            listContainer.innerHTML = '';
+
+            if (menuItems.length === 0) {
+                listContainer.innerHTML = `<p class="text-gray-400 text-center italic mt-4">No menu items added yet.</p>`;
+                return;
+            }
+
+            // Sort items alphabetically by name for easy management
+            const sortedItems = [...menuItems].sort((a, b) => a.name.localeCompare(b.name));
+
+            sortedItems.forEach(item => {
+                listContainer.innerHTML += `
+                    <div class="flex items-center justify-between p-2 border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <div class="flex-grow">
+                            <span class="font-semibold text-gray-800">${item.name}</span>
+                            <span class="text-sm text-gray-500 block">₹${item.price.toFixed(2)} (${item.category})</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="editMenuItem('${item.id}')" class="text-indigo-600 hover:text-indigo-800 p-1 rounded hover:bg-indigo-50 transition duration-150">
+                                <i data-lucide="square-pen" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteMenuItem('${item.id}')" class="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition duration-150">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            lucide.createIcons();
+        }
+
+        // Populates the form to edit an existing item
+        function editMenuItem(itemId) {
+            const itemToEdit = menuItems.find(item => item.id === itemId);
+            if (!itemToEdit) return;
+
+            document.getElementById('item-id-to-edit').value = itemId;
+            document.getElementById('item-name').value = itemToEdit.name;
+            document.getElementById('item-price').value = itemToEdit.price;
+            document.getElementById('item-category').value = itemToEdit.category;
+            addSaveBtn.textContent = 'Save Changes';
+            customAlert(`Editing: ${itemToEdit.name}. Scroll up to the form to modify details.`, 'Editing Item');
+        }
+
+        // Handles both adding a new item and saving changes to an existing one
+        async function saveMenuItem() {
+            const idToEdit = document.getElementById('item-id-to-edit').value;
+            const name = document.getElementById('item-name').value.trim();
+            const price = parseFloat(document.getElementById('item-price').value);
+            const category = document.getElementById('item-category').value.trim();
+
+            if (!name || isNaN(price) || price <= 0 || !category) {
+                customAlert("Please enter valid name, price, and category.", "Input Error", 'error');
+                return;
+            }
+
+            // Check for duplicates ONLY when adding a new item
+            if (!idToEdit) {
+                const isDuplicate = menuItems.some(item => item.name.toLowerCase() === name.toLowerCase());
+                if (isDuplicate) {
+                    customAlert(`An item named "${name}" already exists. Please edit the existing item or use a different name.`, "Duplicate Item", 'error');
+                    return;
+                }
+            }
+
+            const newItemData = {
+                name: name,
+                price: price,
+                category: category,
+            };
+
+            try {
+                if (idToEdit) {
+                    // Update existing item
+                    await updateDoc(doc(menuCollectionRef, idToEdit), newItemData);
+                    customAlert(`${name} updated successfully!`, 'Success');
+                } else {
+                    // Add new item
+                    await addDoc(menuCollectionRef, newItemData);
+                    customAlert(`${name} added successfully!`, 'Success');
+                }
+                
+                // Clear and reset the form
+                document.getElementById('add-edit-item-form').reset();
+                document.getElementById('item-id-to-edit').value = '';
+                addSaveBtn.textContent = 'Add Item';
+            } catch (error) {
+                console.error("Error saving menu item:", error);
+                customAlert("Failed to save item to database. Check console.", "Database Error", 'error');
+            }
+        }
+
+
+        async function deleteMenuItem(itemId) {
+            const itemToDelete = menuItems.find(item => item.id === itemId);
+            if (!itemToDelete) return;
+
+            const confirmed = await customConfirm(`Are you sure you want to delete "${itemToDelete.name}"? This action cannot be undone.`);
+
+            if (confirmed) {
+                try {
+                    await deleteDoc(doc(menuCollectionRef, itemId));
+                    customAlert(`${itemToDelete.name} deleted successfully!`, 'Success');
+                } catch (error) {
+                    console.error("Error deleting menu item:", error);
+                    customAlert("Failed to delete item from database. Check console.", "Database Error", 'error');
+                }
+            }
+        }
+
+
+        function handleCSVUpload() {
+            const fileInput = document.getElementById('csv-file-input');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                customAlert("Please select a CSV file to upload.", "File Required");
+                return;
+            }
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async function(results) {
+                    const data = results.data;
+                    const batchItems = [];
+                    let successCount = 0;
+                    let errorCount = 0;
+                    const existingNames = new Set(menuItems.map(item => item.name.toLowerCase()));
+
+                    for (const row of data) {
+                        const name = row.Name ? row.Name.trim() : null;
+                        const price = parseFloat(row.Price);
+                        const category = row.Category ? row.Category.trim() : null;
+                        const normalizedName = name ? name.toLowerCase() : null;
+
+                        if (name && !isNaN(price) && price > 0 && category) {
+                            // Skip if name is already in the existing menu
+                            if (existingNames.has(normalizedName)) {
+                                console.warn(`Skipping duplicate item from CSV: ${name}`);
+                                errorCount++;
+                                continue;
+                            }
+                            // Add to batch and mark as handled to prevent duplicates within the CSV itself
+                            batchItems.push({
+                                name: name,
+                                price: price,
+                                category: category,
+                            });
+                            existingNames.add(normalizedName);
+                            successCount++;
+                        } else {
+                            console.error("Skipping invalid CSV row:", row);
+                            errorCount++;
+                        }
+                    }
+
+                    if (batchItems.length > 0) {
+                        try {
+                            const addPromises = batchItems.map(item => addDoc(menuCollectionRef, item));
+                            await Promise.all(addPromises);
+                            customAlert(`Successfully imported ${successCount} items! ${errorCount} rows skipped (duplicates/errors).`, 'Import Complete');
+                        } catch (error) {
+                            console.error("Error importing items from CSV:", error);
+                            customAlert("An error occurred during bulk import.", "Import Error", 'error');
+                        }
+                    } else {
+                        customAlert("The CSV file contained no valid, non-duplicate menu items.", "Import Failed", 'error');
+                    }
+                    fileInput.value = ''; // Clear the file input
+                }
+            });
+        }
+
+
+        // --- SALES HISTORY LOGIC ---
+
+        function showOrderHistoryModal() {
+            if (!isMenuReady) {
+                customAlert("Please wait until the app is fully initialized and data is loaded.", "Not Ready");
+                return;
+            }
+            document.getElementById('order-history-modal').style.display = 'flex';
+            renderOrderHistory();
+        }
+
+        function hideOrderHistoryModal() {
+            document.getElementById('order-history-modal').style.display = 'none';
+        }
+
+        async function renderOrderHistory() {
+            const historyContent = document.getElementById('order-history-content');
+            historyContent.innerHTML = `<p class="text-gray-400 text-center italic mt-4">Fetching sales data...</p>`;
+            
+            if (!ordersCollectionRef) return;
+
+            try {
+                // NOTE: Using getDocs instead of onSnapshot for history to fetch once
+                // Fetch all and sort in memory as orderBy is discouraged due to index requirements
+                const querySnapshot = await getDocs(ordersCollectionRef);
+                let orders = [];
+                querySnapshot.forEach(doc => {
+                    orders.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Sort orders by timestamp DESC (newest first) in memory
+                orders.sort((a, b) => {
+                    // Safely handle potential null/undefined timestamps (though serverTimestamp should prevent this)
+                    const aTime = b.timestamp && b.timestamp.toMillis ? b.timestamp.toMillis() : 0;
+                    const bTime = a.timestamp && a.timestamp.toMillis ? a.timestamp.toMillis() : 0;
+                    return aTime - bTime;
+                });
+
+                if (orders.length === 0) {
+                    historyContent.innerHTML = `<p class="text-gray-500 text-center italic mt-4 p-8">No completed orders found in history.</p>`;
+                    return;
+                }
+
+                // Group orders by date
+                const ordersByDate = orders.reduce((groups, order) => {
+                    // Convert Firestore timestamp to Date object
+                    const date = order.timestamp.toDate();
+                    const dateKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                    
+                    if (!groups[dateKey]) {
+                        groups[dateKey] = [];
+                    }
+                    groups[dateKey].push(order);
+                    return groups;
+                }, {});
+
+
+                let historyHTML = '';
+
+                // Render history, starting with the newest date
+                for (const dateKey of Object.keys(ordersByDate)) {
+                    const dailyTotal = ordersByDate[dateKey].reduce((sum, order) => sum + order.totalPayable, 0).toFixed(2);
+                    
+                    historyHTML += `
+                        <div class="border border-indigo-200 rounded-xl shadow-lg">
+                            <h4 class="text-lg font-bold text-white bg-indigo-500 p-3 rounded-t-xl flex justify-between">
+                                <span>${dateKey}</span>
+                                <span>Daily Total: ₹${dailyTotal}</span>
+                            </h4>
+                            <div class="p-4 space-y-3">
+                                ${ordersByDate[dateKey].map(order => `
+                                    <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-100 shadow-sm">
+                                        <div class="flex justify-between font-semibold text-gray-800">
+                                            <span>Order Time: ${order.timestamp.toDate().toLocaleTimeString()}</span>
+                                            <span>Total: ₹${order.totalPayable.toFixed(2)}</span>
+                                        </div>
+                                        <p class="text-xs text-gray-600 mb-2">Type: ${order.orderType}</p>
+                                        <ul class="text-sm list-disc list-inside text-gray-700 space-y-0.5">
+                                            ${order.items.map(item => `
+                                                <li>${item.name} x${item.quantity} (₹${item.total.toFixed(2)})</li>
+                                            `).join('')}
+                                        </ul>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                historyContent.innerHTML = historyHTML;
+
+            } catch (error) {
+                console.error("Error fetching order history:", error);
+                historyContent.innerHTML = `<p class="text-red-500 text-center italic mt-4">Failed to load sales history due to an error.</p>`;
+            }
+        }
+
+
+        // --- GEMINI AI INTEGRATION (DAILY SPECIAL) ---
+
+        async function generateDailySpecial() {
+            if (!isMenuReady) {
+                customAlert("Please wait until the app is fully initialized.", "Not Ready");
+                return;
+            }
+
+            const menuList = menuItems.map(item => `${item.name} (${item.category}) - ₹${item.price.toFixed(2)}`).join('\n');
+            
+            const systemPrompt = "You are a creative executive chef and menu consultant for a modern Indian restaurant. Your task is to invent one new, exciting vegetarian dish that complements the existing menu. The dish must be a limited-time 'Daily Special'. Provide a descriptive name, a compelling description, and a realistic price in INR. The price should be slightly premium (20% higher than the average dish). Do not use markdown formatting in the output, only the JSON structure.";
+            
+            const userQuery = `My current menu items are:\n---\n${menuList}\n---\nBased on this, suggest one creative and compelling vegetarian Daily Special.`;
+
+            // Disable button and show loading state
+            generateSpecialBtn.disabled = true;
+            generateSpecialBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
+            
+            try {
+                // Step 1: Remove any previous special from the menu if it exists
+                const existingSpecial = menuItems.find(item => item.isSpecial);
+                if (existingSpecial) {
+                    await deleteDoc(doc(menuCollectionRef, existingSpecial.id));
+                }
+
+                // Step 2: Call the LOCAL PROXY ENDPOINT
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                suggestedName: { type: "STRING", description: "The descriptive name of the dish." },
+                                suggestedPrice: { type: "NUMBER", description: "The price of the dish (e.g., 320.00)." },
+                                suggestedDescription: { type: "STRING", description: "A short, compelling description." }
+                            }
+                        }
+                    }
+                };
+
+                // CRITICAL CHANGE: Fetch from the local proxy, which handles the API key securely.
+                const response = await fetch(PROXY_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) throw new Error(`Proxy call failed. Status: ${response.status}. See server console for details.`);
+
+                const result = await response.json();
+                
+                // Handle potential errors returned *from* the proxy/Gemini API inside the 200 response
+                if (result.error) {
+                    throw new Error(result.details || result.error);
+                }
+
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                const specialData = JSON.parse(jsonText);
+
+                // Step 3: Add the new special to the database
+                const newSpecial = {
+                    name: specialData.suggestedName,
+                    price: parseFloat(specialData.suggestedPrice),
+                    category: 'Daily Special',
+                    description: specialData.suggestedDescription,
+                    isSpecial: true, // Marker for styling and tracking
+                };
+
+                await addDoc(menuCollectionRef, newSpecial);
+                customAlert(`AI Special added: ${newSpecial.name}!`, 'New Special');
+
+            } catch (error) {
+                console.error("AI Generation Error:", error);
+                customAlert(`Failed to generate special. Error: ${error.message}. Check your Node.js console.`, "AI Error", 'error');
+            } finally {
+                // Re-enable button and reset text
+                generateSpecialBtn.disabled = !isMenuReady;
+                generateSpecialBtn.innerHTML = '<i data-lucide="sparkles" class="w-4 h-4 mr-1"></i> Generate Daily Special';
+                lucide.createIcons();
+            }
+        }
+
+
+        // --- APPLICATION STARTUP ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Firebase services and set up authentication
+            initializeFirebase();
+            
+            // Set up search listener
+            document.getElementById('search-input').addEventListener('keyup', renderMenu);
+
+            // Set up order type change listener
+            document.getElementById('order-type').addEventListener('change', toggleTableSelection);
+
+            // Initialize table selection visibility
+            toggleTableSelection();
+
+            // Re-render the current order state (will be empty on load)
+            renderOrder();
+            
+            // Render initial Lucide icons
+            lucide.createIcons();
+        });
+
+
+        // Expose functions globally for HTML element handlers (onclick)
+        window.addItemToOrderById = addItemToOrderById;
+        window.addItemToOrder = addItemToOrder;
+        window.updateQuantity = updateQuantity;
+        window.printBill = printBill;
+        window.clearOrder = clearOrder;
+        window.renderMenu = renderMenu;
+        window.generateDailySpecial = generateDailySpecial;
+        window.showManageMenuModal = showManageMenuModal;
+        window.hideManageMenuModal = hideManageMenuModal;
+        window.handleCSVUpload = handleCSVUpload;
+        window.saveMenuItem = saveMenuItem;
+        window.editMenuItem = editMenuItem;
+        window.deleteMenuItem = deleteMenuItem;
+        window.showOrderHistoryModal = showOrderHistoryModal;
+        window.hideOrderHistoryModal = hideOrderHistoryModal;
+        window.handleAuth = handleAuth;
+        window.signOutUser = signOutUser;
+        window.selectTable = selectTable;
+        window.toggleTableSelection = toggleTableSelection;
+    </script>
+</body>
+</html>
