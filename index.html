@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickServe Billing System</title>
+    <title>Restaurant Billing System</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load PapaParse for CSV handling -->
@@ -52,7 +52,10 @@
 
     <header class="bg-indigo-600 shadow-lg text-white p-4">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center">
-            <h1 class="text-3xl font-extrabold tracking-tight">QuickServe Billing System</h1>
+            <h1 class="text-3xl font-extrabold tracking-tight leading-tight">
+                <span id="restaurant-name-display">QuickServe Restaurant</span>
+                <span class="block text-xs sm:text-sm font-medium opacity-80">Billing System</span>
+            </h1>
             <div class="flex items-center mt-2 sm:mt-0">
                 <p id="user-id-display" class="text-sm font-light opacity-75 mr-4"></p>
                 <button id="auth-button" onclick="signOutUser()" class="px-3 py-1 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-semibold hidden">
@@ -77,6 +80,10 @@
                 <button id="manage-menu-btn" onclick="showManageMenuModal()" disabled
                     class="px-4 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center">
                     <i data-lucide="utensils" class="w-5 h-5 mr-1"></i> Manage Menu
+                </button>
+                <button id="settings-btn" onclick="showSettingsModal()" disabled
+                    class="px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center">
+                    <i data-lucide="settings" class="w-5 h-5 mr-1"></i> Settings
                 </button>
                 <button id="view-sales-btn" onclick="showOrderHistoryModal()" disabled
                     class="px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center">
@@ -161,7 +168,7 @@
                     <span id="subtotal">0.00</span>
                 </div>
                 <div class="flex justify-between text-sm font-medium text-gray-600">
-                    <span>Tax (5.00%):</span>
+                    <span id="tax-label">GST (5.00%):</span>
                     <span id="tax-amount">0.00</span>
                 </div>
                 <div class="flex justify-between text-lg font-bold text-indigo-600 border-t pt-2 mt-2">
@@ -279,6 +286,55 @@
         </div>
     </div>
 
+    <!-- Modal for Restaurant Settings -->
+    <div id="settings-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all">
+            <h3 class="text-2xl font-bold text-gray-800 mb-2 border-b pb-3 flex justify-between items-center">
+                Restaurant Settings
+                <button onclick="hideSettingsModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </h3>
+            <p class="text-sm text-gray-500 mb-4">Update your restaurant details and tax rate. Changes apply immediately across devices.</p>
+
+            <form id="settings-form" onsubmit="event.preventDefault(); saveSettings()">
+                <div class="space-y-4">
+                    <div>
+                        <label for="settings-restaurant-name" class="block text-sm font-medium text-gray-700">Restaurant Name</label>
+                        <input type="text" id="settings-restaurant-name" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label for="settings-gst-percent" class="block text-sm font-medium text-gray-700">GST % (0 - 100)</label>
+                        <input type="number" id="settings-gst-percent" min="0" max="100" step="0.01" inputmode="decimal" required
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label for="settings-gstin" class="block text-sm font-medium text-gray-700">GSTIN (Optional)</label>
+                        <input type="text" id="settings-gstin" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="22AAAAA0000A1Z5">
+                    </div>
+                    <div>
+                        <label for="settings-phone" class="block text-sm font-medium text-gray-700">Phone (Optional)</label>
+                        <input type="text" id="settings-phone" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="+91 98765 43210">
+                    </div>
+                    <div>
+                        <label for="settings-address" class="block text-sm font-medium text-gray-700">Address (Optional)</label>
+                        <textarea id="settings-address" rows="3" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Street, City, State, PIN"></textarea>
+                    </div>
+                    <button type="submit" id="save-settings-btn"
+                        class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
+                        <i data-lucide="save" class="w-4 h-4 inline mr-1"></i> Save Settings
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6 pt-4 border-t flex justify-end">
+                <button onclick="hideSettingsModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold transition duration-150">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal for Sales History -->
     <div id="order-history-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 transform transition-all">
@@ -333,14 +389,24 @@
         let restaurantId = null; // New variable to store the authorized restaurant ID
         let menuCollectionRef = null;
         let ordersCollectionRef = null;
+        let settingsDocRef = null;
         
         // App State
         let menuItems = [];
         let currentOrder = [];
         let isMenuReady = false;
+        let isSettingsReady = false;
         
         // Constants
-        const TAX_RATE = 0.05; // 5%
+        const DEFAULT_SETTINGS = {
+            restaurantName: 'QuickServe Restaurant',
+            gstPercent: 5,
+            gstNumber: '',
+            phone: '',
+            address: ''
+        };
+        let restaurantSettings = { ...DEFAULT_SETTINGS };
+        let taxRate = DEFAULT_SETTINGS.gstPercent / 100;
         const PROXY_API_URL = 'http://localhost:3000/api/generate-special'; 
         // Define a global, publicly accessible path for the whitelist/tenant management
         const TENANT_WHITELIST_PATH = 'artifacts/global/public/data/restaurant_tenants'; 
@@ -356,9 +422,11 @@
         const menuContainer = document.getElementById('menu-items-container');
         const orderList = document.getElementById('current-order-list');
         const manageMenuBtn = document.getElementById('manage-menu-btn');
+        const settingsBtn = document.getElementById('settings-btn');
         const viewSalesBtn = document.getElementById('view-sales-btn');
         const generateSpecialBtn = document.getElementById('generate-special-btn');
         const addSaveBtn = document.getElementById('add-save-btn');
+        const saveSettingsBtn = document.getElementById('save-settings-btn');
 
 
         // --- UTILITY FUNCTIONS (Replaces alert/confirm) ---
@@ -417,6 +485,61 @@
                     resolve(true);
                 };
             });
+        }
+
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function clampNumber(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        function formatPercent(value) {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) return '0.00';
+            return numeric.toFixed(2);
+        }
+
+        function formatTaxLabel(percentValue) {
+            return `GST (${formatPercent(percentValue)}%):`;
+        }
+
+        function normalizeSettings(data = {}) {
+            const restaurantName = (data.restaurantName || DEFAULT_SETTINGS.restaurantName).toString().trim() || DEFAULT_SETTINGS.restaurantName;
+            const gstRaw = Number(data.gstPercent);
+            const gstPercent = Number.isFinite(gstRaw) ? clampNumber(gstRaw, 0, 100) : DEFAULT_SETTINGS.gstPercent;
+            const gstNumber = typeof data.gstNumber === 'string' ? data.gstNumber.trim() : '';
+            const phone = typeof data.phone === 'string' ? data.phone.trim() : '';
+            const address = typeof data.address === 'string' ? data.address.trim() : '';
+
+            return { restaurantName, gstPercent, gstNumber, phone, address };
+        }
+
+        function applySettings(settings) {
+            restaurantSettings = settings;
+            taxRate = settings.gstPercent / 100;
+
+            const nameDisplay = document.getElementById('restaurant-name-display');
+            if (nameDisplay) nameDisplay.textContent = settings.restaurantName;
+
+            document.title = `${settings.restaurantName} Billing System`;
+
+            const taxLabel = document.getElementById('tax-label');
+            if (taxLabel) taxLabel.textContent = formatTaxLabel(settings.gstPercent);
+
+            calculateTotals();
+        }
+
+        function toggleSettingsReadyState(isReady) {
+            isSettingsReady = isReady;
+            if (settingsBtn) settingsBtn.disabled = !isReady;
         }
 
 
@@ -601,16 +724,22 @@
                         // Define collection references using the UNIQUE RESTAURANT ID, NOT the User ID
                         const menuPath = `artifacts/${appId}/users/${restaurantId}/restaurant_menu`;
                         const ordersPath = `artifacts/${appId}/users/${restaurantId}/completed_orders`;
+                        const settingsPath = `artifacts/${appId}/users/${restaurantId}/restaurant_settings`;
                         menuCollectionRef = collection(db, menuPath);
                         ordersCollectionRef = collection(db, ordersPath);
+                        settingsDocRef = doc(db, settingsPath, 'config');
                         
-                        // Start real-time subscription
+                        // Start real-time subscriptions
+                        subscribeToSettings();
                         subscribeToMenuChanges();
 
                     } else {
                         // User is signed out
                         userId = null;
                         restaurantId = null;
+                        settingsDocRef = null;
+                        toggleSettingsReadyState(false);
+                        applySettings({ ...DEFAULT_SETTINGS });
                         appMainContent.classList.add('hidden');
                         authButton.classList.add('hidden');
                         
@@ -671,6 +800,89 @@
                 }, 300);
                 // Ensure lucide icons are rendered after loading
                 lucide.createIcons();
+            }
+        }
+
+        function subscribeToSettings() {
+            if (!settingsDocRef) return;
+
+            onSnapshot(settingsDocRef, (docSnap) => {
+                const settingsData = docSnap.exists() ? docSnap.data() : {};
+                const normalized = normalizeSettings(settingsData);
+                applySettings(normalized);
+                toggleSettingsReadyState(true);
+            }, (error) => {
+                console.error("Error subscribing to settings:", error);
+                toggleSettingsReadyState(false);
+                customAlert("Failed to load restaurant settings. Check permissions in Firebase.", "Settings Error", 'error');
+            });
+        }
+
+        function showSettingsModal() {
+            if (!isSettingsReady) {
+                customAlert("Please wait until the settings are fully loaded.", "Not Ready");
+                return;
+            }
+
+            document.getElementById('settings-restaurant-name').value = restaurantSettings.restaurantName || DEFAULT_SETTINGS.restaurantName;
+            document.getElementById('settings-gst-percent').value = formatPercent(restaurantSettings.gstPercent);
+            document.getElementById('settings-gstin').value = restaurantSettings.gstNumber || '';
+            document.getElementById('settings-phone').value = restaurantSettings.phone || '';
+            document.getElementById('settings-address').value = restaurantSettings.address || '';
+
+            document.getElementById('settings-modal').style.display = 'flex';
+            lucide.createIcons();
+        }
+
+        function hideSettingsModal() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        async function saveSettings() {
+            if (!settingsDocRef) return;
+
+            const name = document.getElementById('settings-restaurant-name').value.trim();
+            const gstPercentRaw = Number(document.getElementById('settings-gst-percent').value);
+            const gstNumber = document.getElementById('settings-gstin').value.trim();
+            const phone = document.getElementById('settings-phone').value.trim();
+            const address = document.getElementById('settings-address').value.trim();
+
+            if (!name) {
+                customAlert("Restaurant name is required.", "Input Error", 'error');
+                return;
+            }
+            if (!Number.isFinite(gstPercentRaw) || gstPercentRaw < 0 || gstPercentRaw > 100) {
+                customAlert("GST % must be a number between 0 and 100.", "Input Error", 'error');
+                return;
+            }
+
+            const payload = {
+                restaurantName: name,
+                gstPercent: gstPercentRaw,
+                gstNumber: gstNumber,
+                phone: phone,
+                address: address,
+                updatedAt: serverTimestamp()
+            };
+
+            const originalLabel = saveSettingsBtn ? saveSettingsBtn.innerHTML : null;
+            if (saveSettingsBtn) {
+                saveSettingsBtn.disabled = true;
+                saveSettingsBtn.textContent = 'Saving...';
+            }
+
+            try {
+                await setDoc(settingsDocRef, payload, { merge: true });
+                customAlert("Settings saved successfully!", "Success");
+                hideSettingsModal();
+            } catch (error) {
+                console.error("Error saving settings:", error);
+                customAlert("Failed to save settings. Check console.", "Settings Error", 'error');
+            } finally {
+                if (saveSettingsBtn) {
+                    saveSettingsBtn.disabled = false;
+                    if (originalLabel) saveSettingsBtn.innerHTML = originalLabel;
+                }
             }
         }
 
@@ -812,7 +1024,7 @@
 
         function calculateTotals() {
             let subtotal = currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            let taxAmount = subtotal * TAX_RATE;
+            let taxAmount = subtotal * taxRate;
             let totalPayable = subtotal + taxAmount;
 
             document.getElementById('subtotal').textContent = subtotal.toFixed(2);
@@ -920,6 +1132,8 @@
                 totalPayable: total,
                 subtotal: parseFloat(document.getElementById('subtotal').textContent),
                 taxAmount: parseFloat(document.getElementById('tax-amount').textContent),
+                taxPercent: restaurantSettings.gstPercent,
+                restaurantName: restaurantSettings.restaurantName,
                 orderType: orderTypeDisplay,
                 timestamp: serverTimestamp(),
                 restaurantId: restaurantId,
@@ -950,6 +1164,26 @@
             }
 
             const { subtotal, taxAmount, totalPayable } = calculateTotals();
+
+            const safeRestaurantName = escapeHtml(restaurantSettings.restaurantName || DEFAULT_SETTINGS.restaurantName);
+            const safeGstNumber = escapeHtml(restaurantSettings.gstNumber || '');
+            const safePhone = escapeHtml(restaurantSettings.phone || '');
+            const safeAddress = escapeHtml(restaurantSettings.address || '');
+            const gstLabel = formatTaxLabel(restaurantSettings.gstPercent);
+
+            const receiptMetaLines = [];
+            if (restaurantId) {
+                receiptMetaLines.push(`<p style="font-size: 10px; margin: 0 0 6px 0; text-align: center;">Restaurant ID: ${escapeHtml(restaurantId)}</p>`);
+            }
+            if (safeGstNumber) {
+                receiptMetaLines.push(`<p style="font-size: 10px; margin: 0 0 4px 0; text-align: center;">GSTIN: ${safeGstNumber}</p>`);
+            }
+            if (safePhone) {
+                receiptMetaLines.push(`<p style="font-size: 10px; margin: 0 0 4px 0; text-align: center;">Phone: ${safePhone}</p>`);
+            }
+            if (safeAddress) {
+                receiptMetaLines.push(`<p style="font-size: 10px; margin: 0 0 6px 0; text-align: center;">${safeAddress}</p>`);
+            }
             
             // Build order type string
             let orderTypeDisplay = orderType;
@@ -990,8 +1224,8 @@
                 </head>
                 <body>
                     <div class="receipt" id="receipt-content">
-                        <h1 style="font-size: 14px; margin: 0 0 5px 0; font-weight: bold; text-align: center;">QUICKSERVE RESTAURANT</h1>
-                        <p style="font-size: 10px; margin: 0 0 10px 0; text-align: center;">Restaurant ID: ${restaurantId}</p>
+                        <h1 style="font-size: 14px; margin: 0 0 5px 0; font-weight: bold; text-align: center;">${safeRestaurantName}</h1>
+                        ${receiptMetaLines.join('')}
                         <hr>
                         <div style="text-align: left; margin-bottom: 5px;">
                             <p style="font-size: 10px; margin: 2px 0; font-weight: bold;">Order: ${orderTypeDisplay}</p>
@@ -1007,7 +1241,7 @@
                         <hr>
                         <div style="text-align: right; margin-top: 5px;">
                             <div style="display:flex; justify-content:space-between; font-size: 10px;"><span>Subtotal:</span><span>₹${subtotal.toFixed(2)}</span></div>
-                            <div style="display:flex; justify-content:space-between; font-size: 10px;"><span>Tax (5.00%):</span><span>₹${taxAmount.toFixed(2)}</span></div>
+                            <div style="display:flex; justify-content:space-between; font-size: 10px;"><span>${gstLabel}</span><span>₹${taxAmount.toFixed(2)}</span></div>
                             <div style="display:flex; justify-content:space-between; font-size: 12px; margin-top: 5px; font-weight: bold;"><span>TOTAL:</span><span>₹${totalPayable.toFixed(2)}</span></div>
                         </div>
                         
@@ -1433,6 +1667,9 @@
 
             // Re-render the current order state (will be empty on load)
             renderOrder();
+
+            // Apply default settings before Firebase data arrives
+            applySettings(restaurantSettings);
             
             // Render initial Lucide icons
             lucide.createIcons();
@@ -1449,6 +1686,9 @@
         window.generateDailySpecial = generateDailySpecial;
         window.showManageMenuModal = showManageMenuModal;
         window.hideManageMenuModal = hideManageMenuModal;
+        window.showSettingsModal = showSettingsModal;
+        window.hideSettingsModal = hideSettingsModal;
+        window.saveSettings = saveSettings;
         window.handleCSVUpload = handleCSVUpload;
         window.saveMenuItem = saveMenuItem;
         window.editMenuItem = editMenuItem;
