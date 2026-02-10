@@ -110,59 +110,146 @@
         </div>
 
         <!-- Current Order Panel -->
-        <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100 sticky top-8 h-fit">
+        <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100 sticky top-8 h-fit flex flex-col overflow-hidden lg:h-[calc(100vh-160px)]">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Current Order</h2>
             
-            <div class="mb-4">
-                <label for="order-type" class="block text-sm font-medium text-gray-700 mb-1">Order For</label>
-                <select id="order-type" onchange="toggleTableSelection()" class="w-full p-2 border border-gray-300 rounded-lg">
-                    <option value="Table/Dine-In">Table/Dine-In</option>
-                    <option value="Parcel/Takeaway">Parcel/Takeaway</option>
-                </select>
-            </div>
-
-            <!-- Table Number Selection (shown only for Dine-In) -->
-            <div id="table-selection-container" class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Select Table Number</label>
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" onclick="selectTable(1)" data-table="1" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 1
-                    </button>
-                    <button type="button" onclick="selectTable(2)" data-table="2" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 2
-                    </button>
-                    <button type="button" onclick="selectTable(3)" data-table="3" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 3
-                    </button>
-                    <button type="button" onclick="selectTable(4)" data-table="4" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 4
-                    </button>
-                    <button type="button" onclick="selectTable(5)" data-table="5" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 5
-                    </button>
-                    <button type="button" onclick="selectTable(6)" data-table="6" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 6
-                    </button>
-                    <button type="button" onclick="selectTable(7)" data-table="7" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 7
-                    </button>
-                    <button type="button" onclick="selectTable(8)" data-table="8" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 8
-                    </button>
-                    <button type="button" onclick="selectTable(9)" data-table="9" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
-                        Table 9
-                    </button>
+            <div id="order-scroll-area" class="flex-1 min-h-0 overflow-y-auto pr-2">
+                <div id="order-type-step" class="mb-4">
+                    <div class="flex items-center justify-between">
+                        <label for="order-type" class="block text-sm font-medium text-gray-700">Order For</label>
+                        <button type="button" id="order-type-edit" onclick="expandStep('order-type')" class="text-xs text-indigo-600 font-semibold hidden">Edit</button>
+                    </div>
+                    <p id="order-type-summary" class="text-sm text-gray-600 mt-1 hidden"></p>
+                    <div id="order-type-body" class="mt-2">
+                        <select id="order-type" onchange="toggleTableSelection()" class="w-full p-2 border border-gray-300 rounded-lg">
+                            <option value="Table/Dine-In">Table/Dine-In</option>
+                            <option value="Parcel/Takeaway">Parcel/Takeaway</option>
+                        </select>
+                    </div>
                 </div>
-                <input type="hidden" id="selected-table" value="">
-            </div>
 
-            <!-- Order List -->
-            <div id="current-order-list" class="space-y-3 min-h-[100px] max-h-[40vh] overflow-y-auto">
-                <!-- Order items will be rendered here -->
-                <p id="empty-order-message" class="text-gray-400 text-center italic mt-4">No items added yet.</p>
+                <div id="counter-step" class="mb-4">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-medium text-gray-700">Counter</label>
+                        <button type="button" id="counter-edit" onclick="expandStep('counter')" class="text-xs text-indigo-600 font-semibold hidden">Edit</button>
+                    </div>
+                    <p id="counter-summary" class="text-sm text-gray-600 mt-1 hidden"></p>
+                    <div id="counter-body" class="mt-2">
+                        <div class="grid grid-cols-3 gap-2" id="counter-grid">
+                            <button type="button" onclick="selectCounter('Counter 1')" data-counter="Counter 1"
+                                class="counter-btn py-2 px-3 bg-indigo-600 text-white border-2 border-indigo-600 rounded-lg font-semibold text-sm transition duration-150">
+                                Counter 1
+                            </button>
+                            <button type="button" onclick="selectCounter('Counter 2')" data-counter="Counter 2"
+                                class="counter-btn py-2 px-3 bg-gray-100 text-gray-700 border-2 border-gray-300 rounded-lg font-semibold text-sm transition duration-150 hover:bg-indigo-100">
+                                Counter 2
+                            </button>
+                            <button type="button" onclick="selectCounter('Counter 3')" data-counter="Counter 3"
+                                class="counter-btn py-2 px-3 bg-gray-100 text-gray-700 border-2 border-gray-300 rounded-lg font-semibold text-sm transition duration-150 hover:bg-indigo-100">
+                                Counter 3
+                            </button>
+                            <button type="button" onclick="selectCounter('Counter 4')" data-counter="Counter 4"
+                                class="counter-btn py-2 px-3 bg-gray-100 text-gray-700 border-2 border-gray-300 rounded-lg font-semibold text-sm transition duration-150 hover:bg-indigo-100">
+                                Counter 4
+                            </button>
+                            <button type="button" onclick="selectCounter('Counter 5')" data-counter="Counter 5"
+                                class="counter-btn py-2 px-3 bg-gray-100 text-gray-700 border-2 border-gray-300 rounded-lg font-semibold text-sm transition duration-150 hover:bg-indigo-100">
+                                Counter 5
+                            </button>
+                            <button type="button" onclick="selectCounter('Counter 6')" data-counter="Counter 6"
+                                class="counter-btn py-2 px-3 bg-gray-100 text-gray-700 border-2 border-gray-300 rounded-lg font-semibold text-sm transition duration-150 hover:bg-indigo-100">
+                                Counter 6
+                            </button>
+                        </div>
+                        <div id="counter-compact" class="hidden">
+                            <select id="counter-select" onchange="handleCompactCounterChange()" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="" disabled selected>Select counter</option>
+                                <option value="Counter 1">Counter 1</option>
+                                <option value="Counter 2">Counter 2</option>
+                                <option value="Counter 3">Counter 3</option>
+                                <option value="Counter 4">Counter 4</option>
+                                <option value="Counter 5">Counter 5</option>
+                                <option value="Counter 6">Counter 6</option>
+                            </select>
+                        </div>
+                        <div id="counter-custom-row" class="mt-2 flex items-center gap-2">
+                            <input type="text" id="counter-custom-input"
+                                class="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                placeholder="Custom counter (optional)">
+                            <button type="button" onclick="applyCustomCounter()"
+                                class="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg">
+                                Use
+                            </button>
+                        </div>
+                        <input type="hidden" id="counter-selected" value="Counter 1">
+                    </div>
+                </div>
+
+                <!-- Table Number Selection (shown only for Dine-In) -->
+                <div id="table-step" class="mb-4">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-medium text-gray-700">Select Table Number</label>
+                        <button type="button" id="table-edit" onclick="expandStep('table')" class="text-xs text-indigo-600 font-semibold hidden">Edit</button>
+                    </div>
+                    <p id="table-summary" class="text-sm text-gray-600 mt-1 hidden"></p>
+                    <div id="table-body" class="mt-2">
+                        <div id="table-selection-container">
+                            <div id="table-grid" class="grid grid-cols-3 gap-2">
+                                <button type="button" onclick="selectTable(1)" data-table="1" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 1
+                                </button>
+                                <button type="button" onclick="selectTable(2)" data-table="2" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 2
+                                </button>
+                                <button type="button" onclick="selectTable(3)" data-table="3" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 3
+                                </button>
+                                <button type="button" onclick="selectTable(4)" data-table="4" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 4
+                                </button>
+                                <button type="button" onclick="selectTable(5)" data-table="5" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 5
+                                </button>
+                                <button type="button" onclick="selectTable(6)" data-table="6" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 6
+                                </button>
+                                <button type="button" onclick="selectTable(7)" data-table="7" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 7
+                                </button>
+                                <button type="button" onclick="selectTable(8)" data-table="8" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 8
+                                </button>
+                                <button type="button" onclick="selectTable(9)" data-table="9" class="table-btn py-3 px-4 bg-gray-100 hover:bg-indigo-100 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 transition duration-150">
+                                    Table 9
+                                </button>
+                            </div>
+                            <div id="table-compact" class="hidden mt-2">
+                                <select id="table-select" onchange="handleCompactTableChange()" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                                    <option value="" disabled selected>Select table</option>
+                                    <option value="1">Table 1</option>
+                                    <option value="2">Table 2</option>
+                                    <option value="3">Table 3</option>
+                                    <option value="4">Table 4</option>
+                                    <option value="5">Table 5</option>
+                                    <option value="6">Table 6</option>
+                                    <option value="7">Table 7</option>
+                                    <option value="8">Table 8</option>
+                                    <option value="9">Table 9</option>
+                                </select>
+                            </div>
+                        </div>
+                        <input type="hidden" id="selected-table" value="">
+                    </div>
+                </div>
+
+                <!-- Order List -->
+                <div id="current-order-list" class="space-y-3 min-h-[100px]">
+                    <!-- Order items will be rendered here -->
+                    <p id="empty-order-message" class="text-gray-400 text-center italic mt-4">No items added yet.</p>
+                </div>
             </div>
             
-            <div class="mt-4 pt-4 border-t border-gray-200 space-y-2">
+            <div class="mt-4 pt-4 border-t border-gray-200 space-y-2 flex-shrink-0 bg-white">
                 <div class="flex justify-between text-sm font-medium text-gray-600">
                     <span>Subtotal:</span>
                     <span id="subtotal">0.00</span>
@@ -175,16 +262,15 @@
                     <span>Total Payable:</span>
                     <span id="total-payable">0.00</span>
                 </div>
+                <button id="print-bill-btn" onclick="printBill()"
+                    class="w-full mt-4 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-lg transition duration-150">
+                    <i data-lucide="printer" class="w-5 h-5 inline mr-2"></i> Print Bill
+                </button>
+                <button onclick="clearOrder()"
+                    class="w-full mt-2 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-md transition duration-150">
+                    Clear Order
+                </button>
             </div>
-
-            <button onclick="printBill()"
-                class="w-full mt-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-lg transition duration-150">
-                <i data-lucide="printer" class="w-5 h-5 inline mr-2"></i> Print Bill
-            </button>
-            <button onclick="clearOrder()"
-                class="w-full mt-2 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-md transition duration-150">
-                Clear Order
-            </button>
         </div>
     </main>
     
@@ -320,6 +406,14 @@
                         <label for="settings-address" class="block text-sm font-medium text-gray-700">Address (Optional)</label>
                         <textarea id="settings-address" rows="3" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Street, City, State, PIN"></textarea>
                     </div>
+                    <div>
+                        <label for="settings-ui-mode" class="block text-sm font-medium text-gray-700">UI Mode</label>
+                        <select id="settings-ui-mode" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="default">Default (Buttons/Grid)</option>
+                            <option value="compact">Compact (List + Step-by-Step)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Compact mode uses dropdowns and collapses steps after selection.</p>
+                    </div>
                     <button type="submit" id="save-settings-btn"
                         class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
                         <i data-lucide="save" class="w-4 h-4 inline mr-1"></i> Save Settings
@@ -340,10 +434,35 @@
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 transform transition-all">
             <h3 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
                 Daily Sales History
-                <button onclick="hideOrderHistoryModal()" class="text-gray-400 hover:text-gray-600">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
+                <div class="flex items-center space-x-2">
+                    <button id="export-sales-btn" onclick="exportSalesHistoryCSV()" disabled
+                        class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="download" class="w-4 h-4 inline mr-1"></i> Export CSV
+                    </button>
+                    <button onclick="hideOrderHistoryModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
             </h3>
+
+            <div class="flex flex-col sm:flex-row sm:items-end gap-3 mb-4">
+                <div class="flex flex-col">
+                    <label for="history-from-date" class="text-xs font-semibold text-gray-600 mb-1">From</label>
+                    <input type="date" id="history-from-date" class="p-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div class="flex flex-col">
+                    <label for="history-to-date" class="text-xs font-semibold text-gray-600 mb-1">To</label>
+                    <input type="date" id="history-to-date" class="p-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <button id="apply-history-filter-btn" onclick="applySalesHistoryFilter()"
+                    class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">
+                    Apply
+                </button>
+                <button id="clear-history-filter-btn" onclick="clearSalesHistoryFilter()"
+                    class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-sm font-semibold rounded-lg">
+                    Clear
+                </button>
+            </div>
 
             <div id="order-history-content" class="max-h-[70vh] overflow-y-auto space-y-4">
                 <!-- Sales data will be rendered here -->
@@ -396,6 +515,9 @@
         let currentOrder = [];
         let isMenuReady = false;
         let isSettingsReady = false;
+        let salesHistoryCache = [];
+        let salesHistoryFiltered = [];
+        let bestMatchId = null;
         
         // Constants
         const DEFAULT_SETTINGS = {
@@ -403,10 +525,14 @@
             gstPercent: 5,
             gstNumber: '',
             phone: '',
-            address: ''
+            address: '',
+            uiMode: 'default'
         };
+        const UI_MODE_DEFAULT = 'default';
+        const UI_MODE_COMPACT = 'compact';
         let restaurantSettings = { ...DEFAULT_SETTINGS };
         let taxRate = DEFAULT_SETTINGS.gstPercent / 100;
+        let uiMode = DEFAULT_SETTINGS.uiMode;
         const PROXY_API_URL = 'http://localhost:3000/api/generate-special'; 
         // Define a global, publicly accessible path for the whitelist/tenant management
         const TENANT_WHITELIST_PATH = 'artifacts/global/public/data/restaurant_tenants'; 
@@ -427,6 +553,7 @@
         const generateSpecialBtn = document.getElementById('generate-special-btn');
         const addSaveBtn = document.getElementById('add-save-btn');
         const saveSettingsBtn = document.getElementById('save-settings-btn');
+        const exportSalesBtn = document.getElementById('export-sales-btn');
 
 
         // --- UTILITY FUNCTIONS (Replaces alert/confirm) ---
@@ -511,6 +638,59 @@
             return `GST (${formatPercent(percentValue)}%):`;
         }
 
+        function formatTimestamp(value) {
+            if (!value) return { date: '', time: '' };
+            const date = value.toDate ? value.toDate() : new Date(value);
+            if (Number.isNaN(date.getTime())) return { date: '', time: '' };
+            return {
+                date: date.toLocaleDateString(),
+                time: date.toLocaleTimeString()
+            };
+        }
+
+        function csvEscape(value) {
+            const text = value === null || value === undefined ? '' : String(value);
+            if (text.includes('"') || text.includes(',') || text.includes('\n')) {
+                return `"${text.replace(/"/g, '""')}"`;
+            }
+            return text;
+        }
+
+        function slugifyFilename(value) {
+            const base = value ? value.toString().toLowerCase() : '';
+            const cleaned = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            return cleaned || 'restaurant';
+        }
+
+        function highlightText(value, term) {
+            if (!term) return escapeHtml(value);
+            const lowerValue = value.toLowerCase();
+            const lowerTerm = term.toLowerCase();
+            const index = lowerValue.indexOf(lowerTerm);
+            if (index === -1) return escapeHtml(value);
+
+            const before = escapeHtml(value.slice(0, index));
+            const match = escapeHtml(value.slice(index, index + lowerTerm.length));
+            const after = escapeHtml(value.slice(index + lowerTerm.length));
+            return `${before}<mark class="bg-yellow-200 text-gray-900 px-0.5 rounded">${match}</mark>${after}`;
+        }
+
+        function getSearchScore(item, searchTerm) {
+            if (!searchTerm) return 0;
+            const term = searchTerm.toLowerCase().trim();
+            if (!term) return 0;
+            const name = item.name.toLowerCase();
+            const category = item.category.toLowerCase();
+
+            if (name === term) return 100;
+            if (name.startsWith(term)) return 90;
+            if (name.includes(term)) return 70;
+            if (category.startsWith(term)) return 60;
+            if (category.includes(term)) return 50;
+            if (matchesInitialism(item.name, term)) return 40;
+            return 10;
+        }
+
         function normalizeSettings(data = {}) {
             const restaurantName = (data.restaurantName || DEFAULT_SETTINGS.restaurantName).toString().trim() || DEFAULT_SETTINGS.restaurantName;
             const gstRaw = Number(data.gstPercent);
@@ -518,13 +698,15 @@
             const gstNumber = typeof data.gstNumber === 'string' ? data.gstNumber.trim() : '';
             const phone = typeof data.phone === 'string' ? data.phone.trim() : '';
             const address = typeof data.address === 'string' ? data.address.trim() : '';
+            const uiModeValue = data.uiMode === UI_MODE_COMPACT ? UI_MODE_COMPACT : UI_MODE_DEFAULT;
 
-            return { restaurantName, gstPercent, gstNumber, phone, address };
+            return { restaurantName, gstPercent, gstNumber, phone, address, uiMode: uiModeValue };
         }
 
         function applySettings(settings) {
             restaurantSettings = settings;
             taxRate = settings.gstPercent / 100;
+            uiMode = settings.uiMode || UI_MODE_DEFAULT;
 
             const nameDisplay = document.getElementById('restaurant-name-display');
             if (nameDisplay) nameDisplay.textContent = settings.restaurantName;
@@ -534,12 +716,387 @@
             const taxLabel = document.getElementById('tax-label');
             if (taxLabel) taxLabel.textContent = formatTaxLabel(settings.gstPercent);
 
+            applyUiMode(uiMode);
             calculateTotals();
         }
 
         function toggleSettingsReadyState(isReady) {
             isSettingsReady = isReady;
             if (settingsBtn) settingsBtn.disabled = !isReady;
+        }
+
+        function toggleExportReadyState(isReady) {
+            if (exportSalesBtn) exportSalesBtn.disabled = !isReady;
+        }
+
+        function setStepCollapsed(stepId, collapsed) {
+            const body = document.getElementById(`${stepId}-body`);
+            const summary = document.getElementById(`${stepId}-summary`);
+            const editBtn = document.getElementById(`${stepId}-edit`);
+            if (!body || !summary || !editBtn) return;
+
+            body.classList.toggle('hidden', collapsed);
+            summary.classList.toggle('hidden', !collapsed);
+            editBtn.classList.toggle('hidden', !collapsed);
+        }
+
+        function expandStep(stepId) {
+            setStepCollapsed(stepId, false);
+            const body = document.getElementById(`${stepId}-body`);
+            if (!body) return;
+            const input = body.querySelector('select, input, button');
+            if (input) input.focus();
+        }
+
+        function updateOrderSummary() {
+            const orderType = document.getElementById('order-type').value;
+            const summary = document.getElementById('order-type-summary');
+            if (summary) summary.textContent = orderType || 'Not selected';
+        }
+
+        function updateCounterSummary() {
+            const summary = document.getElementById('counter-summary');
+            if (summary) summary.textContent = getCounterValue() || 'Not selected';
+        }
+
+        function updateTableSummary() {
+            const value = document.getElementById('selected-table').value;
+            const summary = document.getElementById('table-summary');
+            if (summary) summary.textContent = value ? `Table ${value}` : 'Not selected';
+        }
+
+        function focusSearchInput() {
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.focus();
+        }
+
+        function focusOrderTypeSelect() {
+            const select = document.getElementById('order-type');
+            if (select) select.focus();
+        }
+
+        function focusCounterControl() {
+            if (uiMode === UI_MODE_COMPACT) {
+                const select = document.getElementById('counter-select');
+                if (select) select.focus();
+            } else {
+                const btn = document.querySelector('.counter-btn');
+                if (btn) btn.focus();
+            }
+        }
+
+        function focusTableControl() {
+            const tableStep = document.getElementById('table-step');
+            if (tableStep && tableStep.classList.contains('hidden')) {
+                focusPrintButton();
+                return;
+            }
+
+            if (uiMode === UI_MODE_COMPACT) {
+                const select = document.getElementById('table-select');
+                if (select) select.focus();
+            } else {
+                const btn = document.querySelector('.table-btn');
+                if (btn) btn.focus();
+            }
+        }
+
+        function focusPrintButton() {
+            const btn = document.getElementById('print-bill-btn');
+            if (btn) btn.focus();
+        }
+
+        let enterTapCount = 0;
+        let lastEnterTapAt = 0;
+
+        function handleDoubleEnterFocus(now = Date.now()) {
+            const delta = now - lastEnterTapAt;
+            if (delta > 450) {
+                enterTapCount = 1;
+            } else {
+                enterTapCount += 1;
+            }
+            lastEnterTapAt = now;
+
+            if (enterTapCount >= 2) {
+                enterTapCount = 0;
+                focusOrderTypeSelect();
+                return true;
+            }
+            return false;
+        }
+
+        function handleGridKeyNavigation(event, selector, columns, onSelect) {
+            const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '];
+            if (!keys.includes(event.key)) return;
+
+            const buttons = Array.from(document.querySelectorAll(selector));
+            if (buttons.length === 0) return;
+            const activeIndex = buttons.indexOf(document.activeElement);
+            if (activeIndex === -1) return;
+
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onSelect(buttons[activeIndex]);
+                return;
+            }
+
+            let nextIndex = activeIndex;
+            if (event.key === 'ArrowLeft') nextIndex = Math.max(0, activeIndex - 1);
+            if (event.key === 'ArrowRight') nextIndex = Math.min(buttons.length - 1, activeIndex + 1);
+            if (event.key === 'ArrowUp') nextIndex = Math.max(0, activeIndex - columns);
+            if (event.key === 'ArrowDown') nextIndex = Math.min(buttons.length - 1, activeIndex + columns);
+
+            if (nextIndex !== activeIndex) {
+                event.preventDefault();
+                buttons[nextIndex].focus();
+            }
+        }
+
+        function openSelectDropdown(selectEl) {
+            if (!selectEl) return;
+            selectEl.focus();
+            if (typeof selectEl.showPicker === 'function') {
+                selectEl.showPicker();
+                return;
+            }
+            selectEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            selectEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+            selectEl.click();
+        }
+
+        function bindSelectFlow(selectId, nextFocusFn, onChange) {
+            const selectEl = document.getElementById(selectId);
+            if (!selectEl) return;
+
+            selectEl.dataset.flowState = 'idle';
+            selectEl.dataset.selectedAt = '0';
+
+            selectEl.addEventListener('focus', () => {
+                selectEl.dataset.flowState = 'idle';
+            });
+
+            selectEl.addEventListener('change', () => {
+                selectEl.dataset.flowState = 'selected';
+                selectEl.dataset.selectedAt = String(Date.now());
+                if (onChange) onChange(selectEl.value);
+            });
+
+            selectEl.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') return;
+
+                const state = selectEl.dataset.flowState || 'idle';
+                const selectedAt = Number(selectEl.dataset.selectedAt || 0);
+
+                if (state === 'idle') {
+                    event.preventDefault();
+                    openSelectDropdown(selectEl);
+                    selectEl.dataset.flowState = 'opened';
+                    return;
+                }
+
+                if (state === 'opened') {
+                    // Allow native select to choose current option.
+                    setTimeout(() => {
+                        if (selectEl.dataset.flowState === 'opened') {
+                            selectEl.dataset.flowState = 'selected';
+                            selectEl.dataset.selectedAt = String(Date.now());
+                        }
+                    }, 0);
+                    return;
+                }
+
+                if (state === 'selected') {
+                    if (Date.now() - selectedAt < 300) {
+                        event.preventDefault();
+                        return;
+                    }
+                    event.preventDefault();
+                    selectEl.dataset.flowState = 'idle';
+                    if (nextFocusFn) nextFocusFn();
+                }
+            });
+        }
+
+        function applyUiMode(mode) {
+            uiMode = mode === UI_MODE_COMPACT ? UI_MODE_COMPACT : UI_MODE_DEFAULT;
+            const isCompact = uiMode === UI_MODE_COMPACT;
+
+            const counterGrid = document.getElementById('counter-grid');
+            const counterCompact = document.getElementById('counter-compact');
+            const counterCustom = document.getElementById('counter-custom-row');
+            const tableGrid = document.getElementById('table-grid');
+            const tableCompact = document.getElementById('table-compact');
+            const orderSummary = document.getElementById('order-type-summary');
+            const counterSummary = document.getElementById('counter-summary');
+            const tableSummary = document.getElementById('table-summary');
+            const orderEdit = document.getElementById('order-type-edit');
+            const counterEdit = document.getElementById('counter-edit');
+            const tableEdit = document.getElementById('table-edit');
+
+            if (counterGrid) counterGrid.classList.toggle('hidden', isCompact);
+            if (counterCompact) counterCompact.classList.toggle('hidden', !isCompact);
+            if (counterCustom) counterCustom.classList.toggle('hidden', isCompact);
+            if (tableGrid) tableGrid.classList.toggle('hidden', isCompact);
+            if (tableCompact) tableCompact.classList.toggle('hidden', !isCompact);
+
+            const counterSelect = document.getElementById('counter-select');
+            if (counterSelect) counterSelect.value = getCounterValue() || '';
+            const tableSelect = document.getElementById('table-select');
+            if (tableSelect) tableSelect.value = document.getElementById('selected-table').value || '';
+
+            updateOrderSummary();
+            updateCounterSummary();
+            updateTableSummary();
+
+            if (isCompact) {
+                if (orderSummary) orderSummary.classList.add('hidden');
+                if (counterSummary) counterSummary.classList.add('hidden');
+                if (tableSummary) tableSummary.classList.add('hidden');
+                if (orderEdit) orderEdit.classList.add('hidden');
+                if (counterEdit) counterEdit.classList.add('hidden');
+                if (tableEdit) tableEdit.classList.add('hidden');
+                setStepCollapsed('order-type', false);
+                setStepCollapsed('counter', false);
+                setStepCollapsed('table', false);
+            } else {
+                setStepCollapsed('order-type', false);
+                setStepCollapsed('counter', false);
+                setStepCollapsed('table', false);
+            }
+        }
+
+        function initializeCompactSteps() {
+            const orderType = document.getElementById('order-type').value;
+            const counterValue = getCounterValue();
+            const tableValue = document.getElementById('selected-table').value;
+
+            setStepCollapsed('order-type', !!orderType);
+            setStepCollapsed('counter', !!counterValue);
+
+            if (orderType === 'Table/Dine-In') {
+                document.getElementById('table-step').classList.remove('hidden');
+                setStepCollapsed('table', !!tableValue);
+            } else {
+                document.getElementById('table-step').classList.add('hidden');
+            }
+        }
+
+        function selectCounter(counterValue, options = {}) {
+            document.getElementById('counter-selected').value = counterValue;
+
+            document.querySelectorAll('.counter-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            });
+
+            const selectedBtn = document.querySelector(`[data-counter="${counterValue}"]`);
+            if (selectedBtn) {
+                selectedBtn.classList.remove('bg-gray-100', 'text-gray-700', 'border-gray-300');
+                selectedBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+            }
+
+            const counterSelect = document.getElementById('counter-select');
+            if (counterSelect) {
+                let option = Array.from(counterSelect.options).find(item => item.value === counterValue);
+                if (!option) {
+                    option = new Option(counterValue, counterValue);
+                    counterSelect.add(option);
+                }
+                counterSelect.value = counterValue;
+            }
+
+            updateCounterSummary();
+
+            const nextStep = options.nextStep || null;
+            const shouldFocusSearch = options.focusSearch !== false;
+
+            if (uiMode === UI_MODE_COMPACT && !options.silent) {
+                if (nextStep === 'table') {
+                    focusTableControl();
+                } else if (nextStep === 'print') {
+                    focusPrintButton();
+                } else if (shouldFocusSearch) {
+                    focusSearchInput();
+                }
+            } else if (!options.silent && nextStep === 'table') {
+                focusTableControl();
+            } else if (!options.silent && nextStep === 'print') {
+                focusPrintButton();
+            }
+        }
+
+        function handleCompactCounterChange() {
+            const counterSelect = document.getElementById('counter-select');
+            if (!counterSelect || !counterSelect.value) return;
+            selectCounter(counterSelect.value, { silent: true, focusSearch: false });
+        }
+
+        function applyCustomCounter() {
+            const customInput = document.getElementById('counter-custom-input');
+            const value = customInput.value.trim();
+            if (!value) {
+                customAlert("Please enter a custom counter name/number.", "Counter Required");
+                return;
+            }
+            selectCounter(value, { focusSearch: false });
+            customInput.value = '';
+        }
+
+        function getCounterValue() {
+            return document.getElementById('counter-selected').value.trim();
+        }
+
+        function selectTable(tableNumber, options = {}) {
+            document.getElementById('selected-table').value = tableNumber;
+            
+            document.querySelectorAll('.table-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            });
+            
+            const selectedBtn = document.querySelector(`[data-table="${tableNumber}"]`);
+            if (selectedBtn) {
+                selectedBtn.classList.remove('bg-gray-100', 'text-gray-700', 'border-gray-300');
+                selectedBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+            }
+
+            const tableSelect = document.getElementById('table-select');
+            if (tableSelect) {
+                tableSelect.value = String(tableNumber);
+            }
+
+            updateTableSummary();
+
+            const nextStep = options.nextStep || null;
+            const shouldFocusSearch = options.focusSearch !== false;
+
+            if (uiMode === UI_MODE_COMPACT && !options.silent) {
+                if (nextStep === 'print') {
+                    focusPrintButton();
+                } else if (shouldFocusSearch) {
+                    focusSearchInput();
+                }
+            } else if (!options.silent && nextStep === 'print') {
+                focusPrintButton();
+            }
+        }
+
+        function handleCompactTableChange() {
+            const tableSelect = document.getElementById('table-select');
+            if (!tableSelect || !tableSelect.value) return;
+            selectTable(tableSelect.value, { silent: true, focusSearch: false });
+        }
+
+        function resetTableSelection() {
+            document.getElementById('selected-table').value = '';
+            document.querySelectorAll('.table-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+            });
+            const tableSelect = document.getElementById('table-select');
+            if (tableSelect) tableSelect.value = '';
+            updateTableSummary();
         }
 
 
@@ -738,6 +1295,8 @@
                         userId = null;
                         restaurantId = null;
                         settingsDocRef = null;
+                        salesHistoryCache = [];
+                        toggleExportReadyState(false);
                         toggleSettingsReadyState(false);
                         applySettings({ ...DEFAULT_SETTINGS });
                         appMainContent.classList.add('hidden');
@@ -829,6 +1388,7 @@
             document.getElementById('settings-gstin').value = restaurantSettings.gstNumber || '';
             document.getElementById('settings-phone').value = restaurantSettings.phone || '';
             document.getElementById('settings-address').value = restaurantSettings.address || '';
+            document.getElementById('settings-ui-mode').value = restaurantSettings.uiMode || UI_MODE_DEFAULT;
 
             document.getElementById('settings-modal').style.display = 'flex';
             lucide.createIcons();
@@ -846,6 +1406,7 @@
             const gstNumber = document.getElementById('settings-gstin').value.trim();
             const phone = document.getElementById('settings-phone').value.trim();
             const address = document.getElementById('settings-address').value.trim();
+            const uiModeSelection = document.getElementById('settings-ui-mode').value;
 
             if (!name) {
                 customAlert("Restaurant name is required.", "Input Error", 'error');
@@ -862,6 +1423,7 @@
                 gstNumber: gstNumber,
                 phone: phone,
                 address: address,
+                uiMode: uiModeSelection === UI_MODE_COMPACT ? UI_MODE_COMPACT : UI_MODE_DEFAULT,
                 updatedAt: serverTimestamp()
             };
 
@@ -955,24 +1517,43 @@
 
             if (filteredItems.length === 0) {
                 menuContainer.innerHTML = `<p class="text-gray-400 text-center italic mt-4 col-span-2">No items found matching "${searchTerm}".</p>`;
+                bestMatchId = null;
                 return;
             }
 
+            let bestMatch = null;
+            let bestScore = -1;
+            if (searchTerm.trim().length > 0) {
+                filteredItems.forEach(item => {
+                    const score = getSearchScore(item, searchTerm);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = item;
+                    }
+                });
+            }
+            bestMatchId = bestMatch ? bestMatch.id : null;
+
             filteredItems.forEach(item => {
                 const isSpecial = item.isSpecial === true;
+                const isBestMatch = bestMatchId && item.id === bestMatchId;
                 const cardClass = isSpecial 
                     ? 'bg-yellow-50 border-yellow-300 hover:bg-yellow-100 shadow-md ring-2 ring-yellow-400' 
                     : 'bg-white border-gray-200 hover:bg-gray-50 shadow-sm';
+                const highlightClass = isBestMatch ? 'ring-2 ring-indigo-400 bg-indigo-50' : '';
+                const renderedName = highlightText(item.name, searchTerm);
+                const renderedCategory = escapeHtml(item.category);
+                const renderedDescription = item.description ? escapeHtml(item.description) : 'Daily AI Special';
                 
                 const html = `
                     <div onclick="addItemToOrderById('${item.id}')" 
-                        class="p-4 rounded-xl border cursor-pointer transition duration-150 transform hover:scale-[1.01] ${cardClass}">
+                        class="p-4 rounded-xl border cursor-pointer transition duration-150 transform hover:scale-[1.01] ${cardClass} ${highlightClass}">
                         <div class="flex justify-between items-start">
-                            <h4 class="text-lg font-semibold text-gray-800">${item.name}</h4>
+                            <h4 class="text-lg font-semibold text-gray-800">${renderedName}</h4>
                             <span class="text-xl font-bold text-indigo-600">₹${item.price.toFixed(2)}</span>
                         </div>
-                        <p class="text-sm text-gray-500 mt-1">${item.category}</p>
-                        ${isSpecial ? `<p class="text-xs text-yellow-700 mt-2 font-medium italic">${item.description || 'Daily AI Special'}</p>` : ''}
+                        <p class="text-sm text-gray-500 mt-1">${renderedCategory}</p>
+                        ${isSpecial ? `<p class="text-xs text-yellow-700 mt-2 font-medium italic">${renderedDescription}</p>` : ''}
                     </div>
                 `;
                 menuContainer.innerHTML += html;
@@ -992,6 +1573,15 @@
                 return;
             }
             addItemToOrder(item.id, item.name, item.price);
+        }
+
+        function addBestMatchFromSearch() {
+            if (!bestMatchId) return;
+            addItemToOrderById(bestMatchId);
+            const searchInput = document.getElementById('search-input');
+            searchInput.value = '';
+            renderMenu();
+            searchInput.focus();
         }
 
         function addItemToOrder(itemId, itemName, itemPrice) {
@@ -1068,46 +1658,32 @@
             currentOrder = [];
             renderOrder();
             document.getElementById('order-type').value = 'Table/Dine-In';
-            document.getElementById('selected-table').value = '';
-            // Reset all table buttons
-            document.querySelectorAll('.table-btn').forEach(btn => {
-                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
-                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
-            });
+            resetTableSelection();
+            selectCounter('Counter 1', { silent: true });
+            updateOrderSummary();
+            updateCounterSummary();
             toggleTableSelection();
             customAlert("Current order cleared successfully.");
         }
 
-        // Table selection functions
-        function selectTable(tableNumber) {
-            // Store selected table
-            document.getElementById('selected-table').value = tableNumber;
-            
-            // Update button styles
-            document.querySelectorAll('.table-btn').forEach(btn => {
-                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
-                btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
-            });
-            
-            const selectedBtn = document.querySelector(`[data-table="${tableNumber}"]`);
-            selectedBtn.classList.remove('bg-gray-100', 'text-gray-700', 'border-gray-300');
-            selectedBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
-        }
-
         function toggleTableSelection() {
             const orderType = document.getElementById('order-type').value;
-            const tableContainer = document.getElementById('table-selection-container');
+            const tableStep = document.getElementById('table-step');
             
             if (orderType === 'Table/Dine-In') {
-                tableContainer.style.display = 'block';
+                tableStep.classList.remove('hidden');
             } else {
-                tableContainer.style.display = 'none';
-                document.getElementById('selected-table').value = '';
-                // Reset table button styles
-                document.querySelectorAll('.table-btn').forEach(btn => {
-                    btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
-                    btn.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
-                });
+                tableStep.classList.add('hidden');
+                resetTableSelection();
+            }
+
+            updateOrderSummary();
+
+            if (uiMode === UI_MODE_COMPACT) {
+                const counterSelect = document.getElementById('counter-select');
+                if (counterSelect) counterSelect.value = getCounterValue() || '';
+                const tableSelect = document.getElementById('table-select');
+                if (tableSelect) tableSelect.value = document.getElementById('selected-table').value || '';
             }
         }
 
@@ -1118,7 +1694,7 @@
          * @param {number} total The total payable amount.
          * @param {string} orderTypeDisplay The display string for order type (e.g., "Table 5")
          */
-        async function saveCompletedOrder(total, orderTypeDisplay) {
+        async function saveCompletedOrder(total, orderTypeDisplay, counterDisplay) {
             if (!ordersCollectionRef || currentOrder.length === 0) return;
 
             const orderData = {
@@ -1135,6 +1711,7 @@
                 taxPercent: restaurantSettings.gstPercent,
                 restaurantName: restaurantSettings.restaurantName,
                 orderType: orderTypeDisplay,
+                counter: counterDisplay,
                 timestamp: serverTimestamp(),
                 restaurantId: restaurantId,
             };
@@ -1156,10 +1733,15 @@
 
             const orderType = document.getElementById('order-type').value;
             const selectedTable = document.getElementById('selected-table').value;
+            const counterValue = getCounterValue();
 
             // Validate table selection for dine-in orders
             if (orderType === 'Table/Dine-In' && !selectedTable) {
                 customAlert("Please select a table number for dine-in orders.", "Table Required");
+                return;
+            }
+            if (!counterValue) {
+                customAlert("Please enter the counter name/number.", "Counter Required");
                 return;
             }
 
@@ -1192,7 +1774,7 @@
             }
 
             // 1. Save the order to history
-            saveCompletedOrder(totalPayable, orderTypeDisplay);
+            saveCompletedOrder(totalPayable, orderTypeDisplay, counterValue);
 
             // 2. Generate the receipt HTML
             let receiptItems = currentOrder.map(item => `
@@ -1229,6 +1811,7 @@
                         <hr>
                         <div style="text-align: left; margin-bottom: 5px;">
                             <p style="font-size: 10px; margin: 2px 0; font-weight: bold;">Order: ${orderTypeDisplay}</p>
+                            <p style="font-size: 10px; margin: 2px 0;">Counter: ${escapeHtml(counterValue)}</p>
                             <p style="font-size: 10px; margin: 2px 0;">Date: ${new Date().toLocaleDateString()}</p>
                             <p style="font-size: 10px; margin: 2px 0;">Time: ${new Date().toLocaleTimeString()}</p>
                         </div>
@@ -1483,11 +2066,163 @@
             document.getElementById('order-history-modal').style.display = 'none';
         }
 
+        function getHistoryDateRange() {
+            const fromInput = document.getElementById('history-from-date').value;
+            const toInput = document.getElementById('history-to-date').value;
+            const fromDate = fromInput ? new Date(`${fromInput}T00:00:00`) : null;
+            const toDate = toInput ? new Date(`${toInput}T23:59:59.999`) : null;
+            return { fromDate, toDate };
+        }
+
+        function filterOrdersByDate(orders) {
+            const { fromDate, toDate } = getHistoryDateRange();
+            if (!fromDate && !toDate) return orders;
+
+            return orders.filter(order => {
+                if (!order.timestamp) return false;
+                const orderDate = order.timestamp.toDate ? order.timestamp.toDate() : new Date(order.timestamp);
+                if (Number.isNaN(orderDate.getTime())) return false;
+                if (fromDate && orderDate < fromDate) return false;
+                if (toDate && orderDate > toDate) return false;
+                return true;
+            });
+        }
+
+        function renderSalesHistoryFromCache() {
+            const historyContent = document.getElementById('order-history-content');
+            historyContent.innerHTML = '';
+
+            if (!salesHistoryCache || salesHistoryCache.length === 0) {
+                historyContent.innerHTML = `<p class="text-gray-500 text-center italic mt-4 p-8">No completed orders found in history.</p>`;
+                salesHistoryFiltered = [];
+                toggleExportReadyState(false);
+                return;
+            }
+
+            const filteredOrders = filterOrdersByDate(salesHistoryCache);
+            salesHistoryFiltered = filteredOrders;
+            toggleExportReadyState(filteredOrders.length > 0);
+
+            if (filteredOrders.length === 0) {
+                historyContent.innerHTML = `<p class="text-gray-500 text-center italic mt-4 p-8">No orders found for the selected date range.</p>`;
+                return;
+            }
+
+            // Group orders by date
+            const ordersByDate = filteredOrders.reduce((groups, order) => {
+                const date = order.timestamp.toDate();
+                const dateKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                
+                if (!groups[dateKey]) {
+                    groups[dateKey] = [];
+                }
+                groups[dateKey].push(order);
+                return groups;
+            }, {});
+
+            let historyHTML = '';
+
+            for (const dateKey of Object.keys(ordersByDate)) {
+                const dailyTotal = ordersByDate[dateKey].reduce((sum, order) => sum + order.totalPayable, 0).toFixed(2);
+                
+                historyHTML += `
+                    <div class="border border-indigo-200 rounded-xl shadow-lg">
+                        <h4 class="text-lg font-bold text-white bg-indigo-500 p-3 rounded-t-xl flex justify-between">
+                            <span>${dateKey}</span>
+                            <span>Daily Total: ₹${dailyTotal}</span>
+                        </h4>
+                        <div class="p-4 space-y-3">
+                            ${ordersByDate[dateKey].map(order => `
+                                <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-100 shadow-sm">
+                                    <div class="flex justify-between font-semibold text-gray-800">
+                                        <span>Order Time: ${order.timestamp.toDate().toLocaleTimeString()}</span>
+                                        <span>Total: ₹${order.totalPayable.toFixed(2)}</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600">Type: ${order.orderType || 'N/A'}</p>
+                                    <p class="text-xs text-gray-600 mb-2">Counter: ${order.counter || 'N/A'}</p>
+                                    <ul class="text-sm list-disc list-inside text-gray-700 space-y-0.5">
+                                        ${order.items.map(item => `
+                                            <li>${item.name} x${item.quantity} (₹${item.total.toFixed(2)})</li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            historyContent.innerHTML = historyHTML;
+        }
+
+        function applySalesHistoryFilter() {
+            renderSalesHistoryFromCache();
+        }
+
+        function clearSalesHistoryFilter() {
+            document.getElementById('history-from-date').value = '';
+            document.getElementById('history-to-date').value = '';
+            renderSalesHistoryFromCache();
+        }
+
+        function exportSalesHistoryCSV() {
+            if (!salesHistoryFiltered || salesHistoryFiltered.length === 0) {
+                customAlert("There are no sales records to export.", "No Data");
+                return;
+            }
+
+            const headers = [
+                'Date',
+                'Time',
+                'Order Type',
+                'Counter',
+                'Subtotal',
+                'GST %',
+                'GST Amount',
+                'Total',
+                'Items'
+            ];
+
+            const rows = salesHistoryFiltered.map(order => {
+                const { date, time } = formatTimestamp(order.timestamp);
+                const taxPercent = Number.isFinite(order.taxPercent) ? order.taxPercent : restaurantSettings.gstPercent;
+                const items = Array.isArray(order.items)
+                    ? order.items.map(item => `${item.name} x${item.quantity} (₹${Number(item.total || 0).toFixed(2)})`).join(' | ')
+                    : '';
+
+                return [
+                    date,
+                    time,
+                    order.orderType || '',
+                    order.counter || '',
+                    Number(order.subtotal || 0).toFixed(2),
+                    Number(taxPercent || 0).toFixed(2),
+                    Number(order.taxAmount || 0).toFixed(2),
+                    Number(order.totalPayable || 0).toFixed(2),
+                    items
+                ].map(csvEscape).join(',');
+            });
+
+            const csvContent = [headers.join(','), ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const fileDate = new Date().toISOString().slice(0, 10);
+            const fileBase = slugifyFilename(restaurantSettings.restaurantName);
+
+            link.href = url;
+            link.download = `${fileBase}-sales-${fileDate}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
         async function renderOrderHistory() {
             const historyContent = document.getElementById('order-history-content');
             historyContent.innerHTML = `<p class="text-gray-400 text-center italic mt-4">Fetching sales data...</p>`;
             
             if (!ordersCollectionRef) return;
+            toggleExportReadyState(false);
 
             try {
                 // NOTE: Using getDocs instead of onSnapshot for history to fetch once
@@ -1506,57 +2241,8 @@
                     return aTime - bTime;
                 });
 
-                if (orders.length === 0) {
-                    historyContent.innerHTML = `<p class="text-gray-500 text-center italic mt-4 p-8">No completed orders found in history.</p>`;
-                    return;
-                }
-
-                // Group orders by date
-                const ordersByDate = orders.reduce((groups, order) => {
-                    // Convert Firestore timestamp to Date object
-                    const date = order.timestamp.toDate();
-                    const dateKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-                    
-                    if (!groups[dateKey]) {
-                        groups[dateKey] = [];
-                    }
-                    groups[dateKey].push(order);
-                    return groups;
-                }, {});
-
-
-                let historyHTML = '';
-
-                // Render history, starting with the newest date
-                for (const dateKey of Object.keys(ordersByDate)) {
-                    const dailyTotal = ordersByDate[dateKey].reduce((sum, order) => sum + order.totalPayable, 0).toFixed(2);
-                    
-                    historyHTML += `
-                        <div class="border border-indigo-200 rounded-xl shadow-lg">
-                            <h4 class="text-lg font-bold text-white bg-indigo-500 p-3 rounded-t-xl flex justify-between">
-                                <span>${dateKey}</span>
-                                <span>Daily Total: ₹${dailyTotal}</span>
-                            </h4>
-                            <div class="p-4 space-y-3">
-                                ${ordersByDate[dateKey].map(order => `
-                                    <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-100 shadow-sm">
-                                        <div class="flex justify-between font-semibold text-gray-800">
-                                            <span>Order Time: ${order.timestamp.toDate().toLocaleTimeString()}</span>
-                                            <span>Total: ₹${order.totalPayable.toFixed(2)}</span>
-                                        </div>
-                                        <p class="text-xs text-gray-600 mb-2">Type: ${order.orderType}</p>
-                                        <ul class="text-sm list-disc list-inside text-gray-700 space-y-0.5">
-                                            ${order.items.map(item => `
-                                                <li>${item.name} x${item.quantity} (₹${item.total.toFixed(2)})</li>
-                                            `).join('')}
-                                        </ul>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
-                }
-                historyContent.innerHTML = historyHTML;
+                salesHistoryCache = orders;
+                renderSalesHistoryFromCache();
 
             } catch (error) {
                 console.error("Error fetching order history:", error);
@@ -1657,10 +2343,75 @@
             initializeFirebase();
             
             // Set up search listener
-            document.getElementById('search-input').addEventListener('keyup', renderMenu);
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('keyup', renderMenu);
+            searchInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    const value = searchInput.value.trim();
+                    if (value) {
+                        renderMenu();
+                        addBestMatchFromSearch();
+                        enterTapCount = 0;
+                        lastEnterTapAt = 0;
+                        return;
+                    }
+                    handleDoubleEnterFocus();
+                }
+            });
 
-            // Set up order type change listener
-            document.getElementById('order-type').addEventListener('change', toggleTableSelection);
+            bindSelectFlow('order-type', () => focusCounterControl(), () => toggleTableSelection());
+            bindSelectFlow('counter-select', () => {
+                const orderType = document.getElementById('order-type').value;
+                if (orderType === 'Table/Dine-In') {
+                    focusTableControl();
+                } else {
+                    focusPrintButton();
+                }
+            }, (value) => {
+                if (value) selectCounter(value, { silent: true, focusSearch: false });
+            });
+            bindSelectFlow('table-select', () => focusPrintButton(), (value) => {
+                if (value) selectTable(value, { silent: true, focusSearch: false });
+            });
+
+            document.getElementById('counter-custom-input').addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    applyCustomCounter();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') return;
+                const active = document.activeElement;
+                if (active && (active.id === 'search-input' || active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA' || active.tagName === 'BUTTON')) {
+                    return;
+                }
+                handleDoubleEnterFocus();
+            });
+
+            const counterGrid = document.getElementById('counter-grid');
+            if (counterGrid) {
+                counterGrid.addEventListener('keydown', (event) => {
+                    handleGridKeyNavigation(event, '.counter-btn', 3, (btn) => {
+                        const value = btn.getAttribute('data-counter');
+                        if (!value) return;
+                        selectCounter(value, { focusSearch: false });
+                    });
+                });
+            }
+
+            const tableGrid = document.getElementById('table-grid');
+            if (tableGrid) {
+                tableGrid.addEventListener('keydown', (event) => {
+                    handleGridKeyNavigation(event, '.table-btn', 3, (btn) => {
+                        const value = btn.getAttribute('data-table');
+                        if (!value) return;
+                        selectTable(value, { focusSearch: false });
+                    });
+                });
+            }
 
             // Initialize table selection visibility
             toggleTableSelection();
@@ -1695,10 +2446,18 @@
         window.deleteMenuItem = deleteMenuItem;
         window.showOrderHistoryModal = showOrderHistoryModal;
         window.hideOrderHistoryModal = hideOrderHistoryModal;
+        window.exportSalesHistoryCSV = exportSalesHistoryCSV;
+        window.applySalesHistoryFilter = applySalesHistoryFilter;
+        window.clearSalesHistoryFilter = clearSalesHistoryFilter;
         window.handleAuth = handleAuth;
         window.signOutUser = signOutUser;
         window.selectTable = selectTable;
         window.toggleTableSelection = toggleTableSelection;
+        window.selectCounter = selectCounter;
+        window.applyCustomCounter = applyCustomCounter;
+        window.expandStep = expandStep;
+        window.handleCompactCounterChange = handleCompactCounterChange;
+        window.handleCompactTableChange = handleCompactTableChange;
     </script>
 </body>
 </html>
