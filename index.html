@@ -374,7 +374,7 @@
 
     <!-- Modal for Restaurant Settings -->
     <div id="settings-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all max-h-[85vh] overflow-y-auto">
             <h3 class="text-2xl font-bold text-gray-800 mb-2 border-b pb-3 flex justify-between items-center">
                 Restaurant Settings
                 <button onclick="hideSettingsModal()" class="text-gray-400 hover:text-gray-600">
@@ -413,6 +413,36 @@
                             <option value="compact">Compact (List + Step-by-Step)</option>
                         </select>
                         <p class="text-xs text-gray-500 mt-1">Compact mode uses dropdowns and collapses steps after selection.</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <div class="flex items-center justify-between">
+                            <p class="text-sm font-semibold text-gray-700">Cloud Sync</p>
+                            <span class="text-xs text-gray-500">Local-first</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Data is stored on this device. Enable cloud sync to back up online.</p>
+                        <label class="flex items-center gap-2 mt-2 text-sm text-gray-700">
+                            <input type="checkbox" id="settings-auto-cloud-sync" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                            Auto-sync changes to cloud
+                        </label>
+                        <p class="text-xs text-gray-500 mt-1">Last cloud sync: <span id="cloud-sync-status">Never</span></p>
+                        <div id="cloud-sync-indicator" class="hidden mt-2 text-xs text-indigo-600 font-semibold flex items-center gap-2">
+                            <svg class="animate-spin h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Syncing...
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-2 mt-3">
+                            <button type="button" id="cloud-sync-push-btn" onclick="syncToCloud(true)"
+                                class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">
+                                Manual Save
+                            </button>
+                            <button type="button" id="cloud-sync-pull-btn" onclick="syncFromCloud(true)"
+                                class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-sm font-semibold rounded-lg">
+                                Manual Load
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Sync includes menu, settings, and sales history.</p>
                     </div>
                     <button type="submit" id="save-settings-btn"
                         class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-150">
@@ -518,6 +548,9 @@
         let salesHistoryCache = [];
         let salesHistoryFiltered = [];
         let bestMatchId = null;
+        let cloudSyncActive = false;
+        let menuUnsub = null;
+        let settingsUnsub = null;
         
         // Constants
         const DEFAULT_SETTINGS = {
@@ -554,6 +587,11 @@
         const addSaveBtn = document.getElementById('add-save-btn');
         const saveSettingsBtn = document.getElementById('save-settings-btn');
         const exportSalesBtn = document.getElementById('export-sales-btn');
+        const autoCloudSyncToggle = document.getElementById('settings-auto-cloud-sync');
+        const cloudSyncPushBtn = document.getElementById('cloud-sync-push-btn');
+        const cloudSyncPullBtn = document.getElementById('cloud-sync-pull-btn');
+        const cloudSyncStatus = document.getElementById('cloud-sync-status');
+        const cloudSyncIndicator = document.getElementById('cloud-sync-indicator');
 
 
         // --- UTILITY FUNCTIONS (Replaces alert/confirm) ---
@@ -718,6 +756,8 @@
 
             applyUiMode(uiMode);
             calculateTotals();
+
+            maybeAutoSaveLocal();
         }
 
         function toggleSettingsReadyState(isReady) {
@@ -727,6 +767,336 @@
 
         function toggleExportReadyState(isReady) {
             if (exportSalesBtn) exportSalesBtn.disabled = !isReady;
+        }
+
+        function getLocalSnapshotKey() {
+            if (!restaurantId) return null;
+            return `quickserve_local_snapshot_${restaurantId}`;
+        }
+
+        function getCloudSyncPrefKey() {
+            if (!restaurantId) return null;
+            return `quickserve_cloud_autosync_${restaurantId}`;
+        }
+
+        function getCloudSyncStatusKey() {
+            if (!restaurantId) return null;
+            return `quickserve_cloud_last_sync_${restaurantId}`;
+        }
+
+        function isAutoCloudSyncEnabled() {
+            const key = getCloudSyncPrefKey();
+            if (!key) return false;
+            return localStorage.getItem(key) === 'true';
+        }
+
+        function setAutoCloudSyncEnabled(value) {
+            const key = getCloudSyncPrefKey();
+            if (!key) return;
+            localStorage.setItem(key, value ? 'true' : 'false');
+        }
+
+        function updateCloudSyncStatus(timestamp) {
+            if (!cloudSyncStatus) return;
+            if (!timestamp) {
+                cloudSyncStatus.textContent = 'Never';
+                return;
+            }
+            const date = new Date(timestamp);
+            cloudSyncStatus.textContent = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+        }
+
+        function setCloudSyncIndicator(isSyncing) {
+            if (!cloudSyncIndicator) return;
+            cloudSyncIndicator.classList.toggle('hidden', !isSyncing);
+        }
+
+        let cloudSyncPending = 0;
+
+        function beginCloudSync() {
+            cloudSyncPending += 1;
+            setCloudSyncIndicator(true);
+        }
+
+        function endCloudSync() {
+            cloudSyncPending = Math.max(0, cloudSyncPending - 1);
+            if (cloudSyncPending === 0) {
+                setCloudSyncIndicator(false);
+            }
+        }
+
+        async function runCloudSync(task) {
+            beginCloudSync();
+            try {
+                return await task();
+            } finally {
+                endCloudSync();
+            }
+        }
+
+        function storeCloudSyncTimestamp(timestamp) {
+            const key = getCloudSyncStatusKey();
+            if (!key) return;
+            localStorage.setItem(key, String(timestamp));
+            updateCloudSyncStatus(timestamp);
+        }
+
+        let historyDbPromise = null;
+
+        function openHistoryDb() {
+            if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+            if (!restaurantId) return Promise.resolve(null);
+            if (historyDbPromise) return historyDbPromise;
+
+            historyDbPromise = new Promise((resolve, reject) => {
+                const request = indexedDB.open(`quickserve_history_${restaurantId}`, 1);
+                request.onupgradeneeded = () => {
+                    const db = request.result;
+                    if (!db.objectStoreNames.contains('history')) {
+                        db.createObjectStore('history', { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+
+            return historyDbPromise;
+        }
+
+        async function saveHistoryToIndexedDB(historyItems) {
+            try {
+                const db = await openHistoryDb();
+                if (!db) return;
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction('history', 'readwrite');
+                    const store = tx.objectStore('history');
+                    store.clear();
+                    historyItems.forEach(item => {
+                        store.put({
+                            ...item,
+                            timestamp: item.timestamp?.toDate ? item.timestamp.toDate().toISOString() : item.timestamp
+                        });
+                    });
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                    tx.onabort = () => reject(tx.error);
+                });
+            } catch (error) {
+                console.error("IndexedDB save error:", error);
+            }
+        }
+
+        async function loadHistoryFromIndexedDB() {
+            try {
+                const db = await openHistoryDb();
+                if (!db) return [];
+                const tx = db.transaction('history', 'readonly');
+                const store = tx.objectStore('history');
+                const request = store.getAll();
+                const data = await new Promise((resolve, reject) => {
+                    request.onsuccess = () => resolve(request.result || []);
+                    request.onerror = () => reject(request.error);
+                });
+                return normalizeHistory(data);
+            } catch (error) {
+                console.error("IndexedDB load error:", error);
+                return [];
+            }
+        }
+
+        function serializeHistory(historyItems) {
+            if (!Array.isArray(historyItems)) return [];
+            return historyItems.map(item => {
+                const copy = { ...item };
+                if (!copy.id) copy.id = crypto.randomUUID();
+                if (copy.timestamp?.toDate) {
+                    copy.timestamp = copy.timestamp.toDate().toISOString();
+                } else if (copy.timestamp instanceof Date) {
+                    copy.timestamp = copy.timestamp.toISOString();
+                } else if (typeof copy.timestamp === 'number') {
+                    copy.timestamp = new Date(copy.timestamp).toISOString();
+                }
+                return copy;
+            });
+        }
+
+        function normalizeHistory(historyItems) {
+            if (!Array.isArray(historyItems)) return [];
+            return historyItems.map(item => {
+                const copy = { ...item };
+                if (!copy.id) copy.id = crypto.randomUUID();
+                if (typeof copy.timestamp === 'string' || typeof copy.timestamp === 'number') {
+                    const parsed = new Date(copy.timestamp);
+                    if (!Number.isNaN(parsed.getTime())) {
+                        copy.timestamp = parsed;
+                    }
+                }
+                return copy;
+            });
+        }
+
+        function saveLocalSnapshotInternal() {
+            const key = getLocalSnapshotKey();
+            if (!key) return;
+
+            const payload = {
+                version: 1,
+                savedAt: Date.now(),
+                restaurantId,
+                settings: restaurantSettings,
+                menu: menuItems,
+                history: []
+            };
+
+            try {
+                localStorage.setItem(key, JSON.stringify(payload));
+            } catch (error) {
+                console.error("Local save error:", error);
+            }
+
+            saveHistoryToIndexedDB(salesHistoryCache);
+        }
+
+        function applyLocalSnapshot(snapshot) {
+            if (!snapshot) return;
+            if (snapshot.settings) {
+                applySettings(normalizeSettings(snapshot.settings));
+                toggleSettingsReadyState(true);
+            }
+            if (Array.isArray(snapshot.menu)) {
+                menuItems = snapshot.menu;
+                renderMenu();
+                renderManagementList();
+                toggleReadyState(true);
+            }
+            if (Array.isArray(snapshot.history)) {
+                salesHistoryCache = normalizeHistory(snapshot.history);
+                renderSalesHistoryFromCache();
+            }
+        }
+
+        async function loadLocalSnapshot(showAlert = false) {
+            const key = getLocalSnapshotKey();
+            if (!key) {
+                if (showAlert) customAlert("Please sign in to load local data.", "Sign In Required");
+                return;
+            }
+
+            const raw = localStorage.getItem(key);
+            if (!raw) {
+                if (showAlert) customAlert("No local data found on this device.", "Local Load");
+                return;
+            }
+
+            try {
+                const snapshot = JSON.parse(raw);
+                applyLocalSnapshot(snapshot);
+                const history = await loadHistoryFromIndexedDB();
+                if (history.length > 0) {
+                    salesHistoryCache = history;
+                    renderSalesHistoryFromCache();
+                }
+                if (showAlert) customAlert("Loaded local data successfully.", "Local Load");
+            } catch (error) {
+                console.error("Local load error:", error);
+                if (showAlert) customAlert("Failed to load local data.", "Local Load Error", 'error');
+            }
+        }
+
+        function maybeAutoSaveLocal() {
+            saveLocalSnapshotInternal();
+        }
+
+        function startCloudSync() {
+            if (cloudSyncActive) return;
+            if (!settingsDocRef || !menuCollectionRef) return;
+            cloudSyncActive = true;
+            settingsUnsub = subscribeToSettings();
+            menuUnsub = subscribeToMenuChanges();
+        }
+
+        function stopCloudSync() {
+            if (settingsUnsub) {
+                settingsUnsub();
+                settingsUnsub = null;
+            }
+            if (menuUnsub) {
+                menuUnsub();
+                menuUnsub = null;
+            }
+            cloudSyncActive = false;
+        }
+
+        async function syncToCloud(showAlert = false) {
+            if (!settingsDocRef || !menuCollectionRef || !ordersCollectionRef) {
+                if (showAlert) customAlert("Cloud sync is not available. Please sign in.", "Sync Error", 'error');
+                return;
+            }
+
+            try {
+                await runCloudSync(async () => {
+                    await setDoc(settingsDocRef, { ...restaurantSettings, updatedAt: serverTimestamp() }, { merge: true });
+
+                    const menuWrites = menuItems.map(item => {
+                        const id = item.id || crypto.randomUUID();
+                        const payload = { ...item };
+                        delete payload.id;
+                        return setDoc(doc(menuCollectionRef, id), payload, { merge: true });
+                    });
+
+                    const historyWrites = salesHistoryCache.map(order => {
+                        const id = order.id || crypto.randomUUID();
+                        const payload = { ...order };
+                        delete payload.id;
+                        return setDoc(doc(ordersCollectionRef, id), payload, { merge: true });
+                    });
+
+                    await Promise.all([...menuWrites, ...historyWrites]);
+                });
+                storeCloudSyncTimestamp(Date.now());
+
+                if (showAlert) customAlert("Synced to cloud successfully.", "Cloud Sync");
+            } catch (error) {
+                console.error("Cloud sync error:", error);
+                if (showAlert) customAlert("Failed to sync to cloud.", "Cloud Sync Error", 'error');
+            }
+        }
+
+        async function syncFromCloud(showAlert = false) {
+            if (!settingsDocRef || !menuCollectionRef || !ordersCollectionRef) {
+                if (showAlert) customAlert("Cloud sync is not available. Please sign in.", "Sync Error", 'error');
+                return;
+            }
+
+            try {
+                const [settingsSnap, menuSnap, historySnap] = await runCloudSync(async () => {
+                    return Promise.all([
+                        getDoc(settingsDocRef),
+                        getDocs(menuCollectionRef),
+                        getDocs(ordersCollectionRef)
+                    ]);
+                });
+
+                const settingsData = settingsSnap.exists() ? settingsSnap.data() : {};
+                const menu = [];
+                menuSnap.forEach(docSnap => {
+                    menu.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                const history = [];
+                historySnap.forEach(docSnap => {
+                    history.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                applyLocalSnapshot({ settings: settingsData, menu, history });
+                saveLocalSnapshotInternal();
+                storeCloudSyncTimestamp(Date.now());
+
+                if (showAlert) customAlert("Loaded data from cloud.", "Cloud Sync");
+            } catch (error) {
+                console.error("Cloud load error:", error);
+                if (showAlert) customAlert("Failed to load from cloud.", "Cloud Sync Error", 'error');
+            }
         }
 
         function setStepCollapsed(stepId, collapsed) {
@@ -1286,15 +1656,22 @@
                         ordersCollectionRef = collection(db, ordersPath);
                         settingsDocRef = doc(db, settingsPath, 'config');
                         
-                        // Start real-time subscriptions
-                        subscribeToSettings();
-                        subscribeToMenuChanges();
+                        // Load local data first (offline-first)
+                        loadLocalSnapshot(false);
+
+                        if (isAutoCloudSyncEnabled()) {
+                            startCloudSync();
+                        } else {
+                            toggleReadyState(true);
+                            toggleSettingsReadyState(true);
+                        }
 
                     } else {
                         // User is signed out
                         userId = null;
                         restaurantId = null;
                         settingsDocRef = null;
+                        stopCloudSync();
                         salesHistoryCache = [];
                         toggleExportReadyState(false);
                         toggleSettingsReadyState(false);
@@ -1365,7 +1742,7 @@
         function subscribeToSettings() {
             if (!settingsDocRef) return;
 
-            onSnapshot(settingsDocRef, (docSnap) => {
+            const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
                 const settingsData = docSnap.exists() ? docSnap.data() : {};
                 const normalized = normalizeSettings(settingsData);
                 applySettings(normalized);
@@ -1375,6 +1752,7 @@
                 toggleSettingsReadyState(false);
                 customAlert("Failed to load restaurant settings. Check permissions in Firebase.", "Settings Error", 'error');
             });
+            return unsubscribe;
         }
 
         function showSettingsModal() {
@@ -1389,6 +1767,17 @@
             document.getElementById('settings-phone').value = restaurantSettings.phone || '';
             document.getElementById('settings-address').value = restaurantSettings.address || '';
             document.getElementById('settings-ui-mode').value = restaurantSettings.uiMode || UI_MODE_DEFAULT;
+
+            if (autoCloudSyncToggle) {
+                autoCloudSyncToggle.checked = isAutoCloudSyncEnabled();
+            }
+            if (cloudSyncPushBtn) cloudSyncPushBtn.disabled = !restaurantId;
+            if (cloudSyncPullBtn) cloudSyncPullBtn.disabled = !restaurantId;
+            if (cloudSyncStatus) {
+                const key = getCloudSyncStatusKey();
+                const raw = key ? localStorage.getItem(key) : null;
+                updateCloudSyncStatus(raw ? Number(raw) : null);
+            }
 
             document.getElementById('settings-modal').style.display = 'flex';
             lucide.createIcons();
@@ -1434,7 +1823,12 @@
             }
 
             try {
-                await setDoc(settingsDocRef, payload, { merge: true });
+                applySettings(normalizeSettings(payload));
+                maybeAutoSaveLocal();
+
+                if (isAutoCloudSyncEnabled()) {
+                    await runCloudSync(() => setDoc(settingsDocRef, payload, { merge: true }));
+                }
                 customAlert("Settings saved successfully!", "Success");
                 hideSettingsModal();
             } catch (error) {
@@ -1452,7 +1846,7 @@
             if (!menuCollectionRef) return;
             
             // Set up a real-time listener for the menu items
-            onSnapshot(menuCollectionRef, (snapshot) => {
+            const unsubscribe = onSnapshot(menuCollectionRef, (snapshot) => {
                 const newMenuItems = [];
                 snapshot.forEach(doc => {
                     // Store the Firestore document ID in the item object
@@ -1463,6 +1857,7 @@
                 // Rerender the menu and management list immediately
                 renderMenu();
                 renderManagementList();
+                maybeAutoSaveLocal();
 
                 // If this is the first successful load, set the ready state
                 if (!isMenuReady) {
@@ -1473,6 +1868,7 @@
                 customAlert("Failed to load menu data. Check permissions in Firebase.", "Database Error", 'error');
                 toggleReadyState(false);
             });
+            return unsubscribe;
         }
 
 
@@ -1695,8 +2091,10 @@
          * @param {string} orderTypeDisplay The display string for order type (e.g., "Table 5")
          */
         async function saveCompletedOrder(total, orderTypeDisplay, counterDisplay) {
-            if (!ordersCollectionRef || currentOrder.length === 0) return;
+            if (currentOrder.length === 0) return;
 
+            const localTimestamp = new Date();
+            const localId = crypto.randomUUID();
             const orderData = {
                 items: currentOrder.map(item => ({
                     id: item.id,
@@ -1712,13 +2110,24 @@
                 restaurantName: restaurantSettings.restaurantName,
                 orderType: orderTypeDisplay,
                 counter: counterDisplay,
-                timestamp: serverTimestamp(),
+                timestamp: localTimestamp,
                 restaurantId: restaurantId,
             };
 
             try {
-                await addDoc(ordersCollectionRef, orderData);
-                console.log("Order saved successfully to history.");
+                salesHistoryCache = [
+                    {
+                        id: localId,
+                        ...orderData,
+                    },
+                    ...salesHistoryCache
+                ];
+                maybeAutoSaveLocal();
+
+                if (isAutoCloudSyncEnabled() && ordersCollectionRef) {
+                    await runCloudSync(() => setDoc(doc(ordersCollectionRef, localId), orderData, { merge: true }));
+                    console.log("Order saved successfully to cloud history.");
+                }
             } catch (error) {
                 console.error("Error saving order to history:", error);
                 customAlert("Failed to save order to sales history. Check console.", "Save Error", 'error');
@@ -1949,12 +2358,30 @@
 
             try {
                 if (idToEdit) {
-                    // Update existing item
-                    await updateDoc(doc(menuCollectionRef, idToEdit), newItemData);
+                    // Update existing item (local-first)
+                    const index = menuItems.findIndex(item => item.id === idToEdit);
+                    if (index > -1) {
+                        menuItems[index] = { ...menuItems[index], ...newItemData };
+                    }
+                    renderMenu();
+                    renderManagementList();
+                    maybeAutoSaveLocal();
+
+                    if (isAutoCloudSyncEnabled()) {
+                        await runCloudSync(() => setDoc(doc(menuCollectionRef, idToEdit), newItemData, { merge: true }));
+                    }
                     customAlert(`${name} updated successfully!`, 'Success');
                 } else {
-                    // Add new item
-                    await addDoc(menuCollectionRef, newItemData);
+                    // Add new item (local-first)
+                    const newId = crypto.randomUUID();
+                    menuItems.push({ id: newId, ...newItemData });
+                    renderMenu();
+                    renderManagementList();
+                    maybeAutoSaveLocal();
+
+                    if (isAutoCloudSyncEnabled()) {
+                        await runCloudSync(() => setDoc(doc(menuCollectionRef, newId), newItemData, { merge: true }));
+                    }
                     customAlert(`${name} added successfully!`, 'Success');
                 }
                 
@@ -1964,7 +2391,7 @@
                 addSaveBtn.textContent = 'Add Item';
             } catch (error) {
                 console.error("Error saving menu item:", error);
-                customAlert("Failed to save item to database. Check console.", "Database Error", 'error');
+                customAlert("Failed to save item. Check console.", "Database Error", 'error');
             }
         }
 
@@ -1977,11 +2404,18 @@
 
             if (confirmed) {
                 try {
-                    await deleteDoc(doc(menuCollectionRef, itemId));
+                    menuItems = menuItems.filter(item => item.id !== itemId);
+                    renderMenu();
+                    renderManagementList();
+                    maybeAutoSaveLocal();
+
+                    if (isAutoCloudSyncEnabled()) {
+                        await runCloudSync(() => deleteDoc(doc(menuCollectionRef, itemId)));
+                    }
                     customAlert(`${itemToDelete.name} deleted successfully!`, 'Success');
                 } catch (error) {
                     console.error("Error deleting menu item:", error);
-                    customAlert("Failed to delete item from database. Check console.", "Database Error", 'error');
+                    customAlert("Failed to delete item. Check console.", "Database Error", 'error');
                 }
             }
         }
@@ -2021,6 +2455,7 @@
                             }
                             // Add to batch and mark as handled to prevent duplicates within the CSV itself
                             batchItems.push({
+                                id: crypto.randomUUID(),
                                 name: name,
                                 price: price,
                                 category: category,
@@ -2035,8 +2470,19 @@
 
                     if (batchItems.length > 0) {
                         try {
-                            const addPromises = batchItems.map(item => addDoc(menuCollectionRef, item));
-                            await Promise.all(addPromises);
+                            menuItems = [...menuItems, ...batchItems];
+                            renderMenu();
+                            renderManagementList();
+                            maybeAutoSaveLocal();
+
+                            if (isAutoCloudSyncEnabled()) {
+                                const addPromises = batchItems.map(item => {
+                                    const payload = { ...item };
+                                    delete payload.id;
+                                    return setDoc(doc(menuCollectionRef, item.id), payload, { merge: true });
+                                });
+                                await runCloudSync(() => Promise.all(addPromises));
+                            }
                             customAlert(`Successfully imported ${successCount} items! ${errorCount} rows skipped (duplicates/errors).`, 'Import Complete');
                         } catch (error) {
                             console.error("Error importing items from CSV:", error);
@@ -2110,8 +2556,9 @@
 
             // Group orders by date
             const ordersByDate = filteredOrders.reduce((groups, order) => {
-                const date = order.timestamp.toDate();
-                const dateKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                const dateObj = order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp);
+                if (Number.isNaN(dateObj.getTime())) return groups;
+                const dateKey = dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
                 
                 if (!groups[dateKey]) {
                     groups[dateKey] = [];
@@ -2135,7 +2582,7 @@
                             ${ordersByDate[dateKey].map(order => `
                                 <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-100 shadow-sm">
                                     <div class="flex justify-between font-semibold text-gray-800">
-                                        <span>Order Time: ${order.timestamp.toDate().toLocaleTimeString()}</span>
+                                        <span>Order Time: ${(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp)).toLocaleTimeString()}</span>
                                         <span>Total: ₹${order.totalPayable.toFixed(2)}</span>
                                     </div>
                                     <p class="text-xs text-gray-600">Type: ${order.orderType || 'N/A'}</p>
@@ -2221,7 +2668,10 @@
             const historyContent = document.getElementById('order-history-content');
             historyContent.innerHTML = `<p class="text-gray-400 text-center italic mt-4">Fetching sales data...</p>`;
             
-            if (!ordersCollectionRef) return;
+            if (!isAutoCloudSyncEnabled() || !ordersCollectionRef) {
+                renderSalesHistoryFromCache();
+                return;
+            }
             toggleExportReadyState(false);
 
             try {
@@ -2243,6 +2693,7 @@
 
                 salesHistoryCache = orders;
                 renderSalesHistoryFromCache();
+                maybeAutoSaveLocal();
 
             } catch (error) {
                 console.error("Error fetching order history:", error);
@@ -2273,7 +2724,13 @@
                 // Step 1: Remove any previous special from the menu if it exists
                 const existingSpecial = menuItems.find(item => item.isSpecial);
                 if (existingSpecial) {
-                    await deleteDoc(doc(menuCollectionRef, existingSpecial.id));
+                    menuItems = menuItems.filter(item => item.id !== existingSpecial.id);
+                    renderMenu();
+                    renderManagementList();
+                    maybeAutoSaveLocal();
+                    if (isAutoCloudSyncEnabled() && menuCollectionRef) {
+                        await runCloudSync(() => deleteDoc(doc(menuCollectionRef, existingSpecial.id)));
+                    }
                 }
 
                 // Step 2: Call the LOCAL PROXY ENDPOINT
@@ -2312,7 +2769,7 @@
                 const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 const specialData = JSON.parse(jsonText);
 
-                // Step 3: Add the new special to the database
+                // Step 3: Add the new special
                 const newSpecial = {
                     name: specialData.suggestedName,
                     price: parseFloat(specialData.suggestedPrice),
@@ -2320,8 +2777,15 @@
                     description: specialData.suggestedDescription,
                     isSpecial: true, // Marker for styling and tracking
                 };
+                const newId = crypto.randomUUID();
+                menuItems.push({ id: newId, ...newSpecial });
+                renderMenu();
+                renderManagementList();
+                maybeAutoSaveLocal();
 
-                await addDoc(menuCollectionRef, newSpecial);
+                if (isAutoCloudSyncEnabled() && menuCollectionRef) {
+                    await runCloudSync(() => setDoc(doc(menuCollectionRef, newId), newSpecial, { merge: true }));
+                }
                 customAlert(`AI Special added: ${newSpecial.name}!`, 'New Special');
 
             } catch (error) {
@@ -2391,6 +2855,17 @@
                 handleDoubleEnterFocus();
             });
 
+            if (autoCloudSyncToggle) {
+                autoCloudSyncToggle.addEventListener('change', () => {
+                    setAutoCloudSyncEnabled(autoCloudSyncToggle.checked);
+                    if (autoCloudSyncToggle.checked) {
+                        syncToCloud(true).finally(() => startCloudSync());
+                    } else {
+                        stopCloudSync();
+                    }
+                });
+            }
+
             const counterGrid = document.getElementById('counter-grid');
             if (counterGrid) {
                 counterGrid.addEventListener('keydown', (event) => {
@@ -2449,6 +2924,8 @@
         window.exportSalesHistoryCSV = exportSalesHistoryCSV;
         window.applySalesHistoryFilter = applySalesHistoryFilter;
         window.clearSalesHistoryFilter = clearSalesHistoryFilter;
+        window.syncToCloud = syncToCloud;
+        window.syncFromCloud = syncFromCloud;
         window.handleAuth = handleAuth;
         window.signOutUser = signOutUser;
         window.selectTable = selectTable;
